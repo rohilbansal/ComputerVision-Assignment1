@@ -3,7 +3,7 @@
 //
 // Based on skeleton code by D. Crandall, Spring 2017
 //
-// PUT YOUR NAMES HERE
+// ctewani-gdhody-bansalro
 //
 //
 
@@ -16,6 +16,7 @@
 #include <SImageIO.h>
 #include <fft.h>
 #include <math.h>
+#include <typeinfo>
 
 using namespace std;
 
@@ -63,39 +64,83 @@ SDoublePlane check_image(const SDoublePlane &input, int N);
 gdhody 29-Jan-2017
 */
 SDoublePlane fft_magnitude(const SDoublePlane &fft_real, const SDoublePlane &fft_imag){
-  SDoublePlane spectrogram = SDoublePlane(fft_real.rows(),fft_real.cols());
-  int rowLoop = 0, columnLoop = 0;
-	double value , realComponent, imaginaryComponent;
+	
+	//Declaring spectrogram that contains magnitude of FFT
+	SDoublePlane spectrogram = SDoublePlane(fft_real.rows(),fft_real.cols());
+  	//Declaring constants needed to run code
+	int rowLoop = 0, columnLoop = 0;
+	double minV = LONG_MAX,maxV = LONG_MIN, imageColorConstant = 255.00, value = 0.0;
+	
+	//Logic to calculate magnitude and find min and max value in our fft, min max used for normalization of image so we can display it correctly in output
 	for (rowLoop = 0;rowLoop < fft_real.rows(); ++rowLoop){
 		for(columnLoop = 0;columnLoop < fft_real.cols(); ++columnLoop){
-			//spectrogram[rowLoop][columnLoop] = log(sqrt(fft_real[rowLoop][columnLoop]*fft_real[rowLoop][columnLoop]+fft_imag[rowLoop][columnLoop]*fft_imag[rowLoop][columnLoop]));
-			realComponent = (double)fft_real[rowLoop][columnLoop];
-			imaginaryComponent = (double)fft_imag[rowLoop][columnLoop];
-			value = sqrt(realComponent + imaginaryComponent);
-			if (value != 0)
-				spectrogram[rowLoop][columnLoop] = (double)log(value);
+			value = ( sqrt( (fft_real[rowLoop][columnLoop]*fft_real[rowLoop][columnLoop]) + (fft_imag[rowLoop][columnLoop]*fft_imag[rowLoop][columnLoop]) ) );
+			
+			//Log of 0 is -inf we don't want that
+			if (value == 0)
+				spectrogram[rowLoop][columnLoop] = LONG_MIN;
 			else
-				spectrogram[rowLoop][columnLoop] = (double)0;
+				spectrogram[rowLoop][columnLoop] = log(value);
+
+			//Find Min Max value except where value is LONG_MIN
+			if (spectrogram[rowLoop][columnLoop] != LONG_MIN){
+				if (spectrogram[rowLoop][columnLoop] < minV)
+					minV = spectrogram[rowLoop][columnLoop];
+				if (spectrogram[rowLoop][columnLoop] > maxV)
+					maxV = spectrogram[rowLoop][columnLoop];
+			}
 		}
 	}
-	printf("Magnitude Computed\n");
+
+	//updating the normalied values in spectrogram for displaying in png image
+	for (rowLoop = 0;rowLoop < fft_real.rows(); ++rowLoop){
+		for(columnLoop = 0;columnLoop < fft_real.cols(); ++columnLoop){
+			//IF Long_Min means the magnitude was log of 0 so it is 0
+			if (spectrogram[rowLoop][columnLoop] != LONG_MIN) 
+				spectrogram[rowLoop][columnLoop] = ((spectrogram[rowLoop][columnLoop] - minV) * (imageColorConstant/(maxV-minV)));
+			else
+				spectrogram[rowLoop][columnLoop] = 0;	
+		}
+	}
+
+	printf("FFT-Magnitude min max without normalization %f,%f; After normalization (0-255)\n",minV,maxV);
+	printf("FFT-Magnitude Computed For Image FFT\n");
 	return spectrogram;
 }
 
 
-SDoublePlane remove_interference(const SDoublePlane &input){
+
+SDoublePlane remove_interference(const SDoublePlane &input){	
+	SDoublePlane real,imagine,result,Mresult;
+	//Do The FFT
+	fft(input,real,imagine);
 	int rowLoop = 0, columnLoop = 0;
-	int interference [] = {156,160,352,256};
-	int rowsInImage = input.rows();
-	for (int _2moves = 0; _2moves < 2; ++_2moves){
-		for (rowLoop = interference[0 + (2*_2moves)];rowLoop <= interference[1 + (2*_2moves)];++rowLoop){
-			for (columnLoop = 0; columnLoop < rowsInImage; ++columnLoop){
-				input[rowLoop][columnLoop] = (double)0;
+	//Box Coordinates To Remove Message Put Into Image As Noise - HI
+	int interferenceBox [] = {155,350};
+	int rowWidth = 5, columnWidth = 8;
+	//Box Coordinates Defined
+		//Logic To Remove Box Coordinates with 0 intensity
+		for (rowLoop = 0;rowLoop <= rowWidth; ++rowLoop){
+			for (columnLoop = 0; columnLoop <= columnWidth; ++columnLoop){
+				real[interferenceBox[0] + rowLoop][interferenceBox[0] + columnLoop] = 0.0;
+				real[interferenceBox[1] + rowLoop + 1][interferenceBox[1] + columnLoop] = 0.0;
+				imagine[interferenceBox[0] + rowLoop][interferenceBox[0] + columnLoop] = 0.0;
+				imagine[interferenceBox[1] + rowLoop + 1][interferenceBox[1] + columnLoop] = 0.0;
+				/*Remove Complete || Horizontal Lines
+				real[interference[0] + rowLoop][columnLoop] = (double)0;	
+				real[interference[1] + rowLoop][columnLoop] = (double)0;
+				imagine[interference[0] + rowLoop][columnLoop] = (double)0;    
+			       	imagine[interference[1] + rowLoop][columnLoop] = (double)0;*/
 			}
 		}
-	}
-	printf("Interference Removed\n");
-	return input;
+	Mresult = fft_magnitude(real,imagine);
+	printf("RMI-Interference Removed\n");
+	SImageIO::write_png_file("Noise_Removed_fft.png",Mresult,Mresult,Mresult); 		
+	printf("RMI-FFT Magnitude Image Generated After Noise Message - HI - Removal : %s\n","Noise_Removed_fft.png");
+	//Parse The Image Back Through IFFT
+	ifft(real,imagine,result);
+	//Return The Grayscale Component To Be Written Back To PNG
+	return result;
 }
 /*
 gdhody 29-Jan-2017
@@ -117,60 +162,38 @@ int main(int argc, char **argv)
     string part = argv[1];
     string inputFile = argv[2];
     string outputFile = argv[3];
-    cout << "In: " << inputFile <<"  Out: " << outputFile;
-
-    printf("%s\n",inputFile.c_str());
-		SDoublePlane input_image = SImageIO::read_png_file(inputFile.c_str());
+    cout << "In: " << inputFile <<"  Out: " << outputFile << endl;
+    //printf("%s\n",inputFile.c_str());
+    SDoublePlane input_image = SImageIO::read_png_file(inputFile.c_str());
     
+
     if(strcmp(argv[1],"1.1")==0)
       {
 				/*
 				gdhody 29/1/2017
 				*/
 				SDoublePlane real,imagine,result;
+				//Do the fft
 				fft(input_image,real,imagine);
+				//Find the magnitude
 				result = fft_magnitude(real,imagine);
 				SImageIO::write_png_file(argv[3],result,result,result);
-				printf ("Magnitude 1.1 Module Finished\n");
+				printf ("Magnitude 1.1 Module Finished, with output Image : %s\n",argv[3]);
 				/*
 				gdhody 29/1/2017
 				*/	
       }
     else if(strcmp(argv[1],"1.2")==0)
       {
-			/*
+				/*
 				gdhody 29/1/2017
 				*/
-				//Get the FFT
-				SDoublePlane real,imagine,result;
-				fft(input_image,real,imagine);
-				result = fft_magnitude(real,imagine);
-				//Remove the noise
-				result = remove_interference(result);
-				int interference [] = {155,161,350,256};
-				int rowsInImage = real.rows();
-				for (int _2moves = 0; _2moves < 2; ++_2moves){
-					for (int rowLoop = interference[0 + (2*_2moves)];rowLoop <= interference[1 + (2*_2moves)];++rowLoop){
-						for (int columnLoop = 0; columnLoop < rowsInImage; ++columnLoop){
-							real[rowLoop][columnLoop] = (double)0;
-							imagine[rowLoop][columnLoop] = (double)0;
-						}
-					}
-				}
-				for (int x = 0; x < 511; ++x){
-					real[255][x]=0;
-					imagine[255][x]=0;
-					real[x][255]=0;
-					imagine[x][255]=0;
-					real[x][255]=0;
-					imagine[x][255]=0;
-					real[x][255]=0;
-					imagine[x][255]=0;
-				}
-				//Do the IDFT transformation
 				SDoublePlane Nresult;
-				ifft(real,imagine,Nresult);
+				//Remove the noise
+				Nresult = remove_interference(input_image);
+				//Save The Image
 				SImageIO::write_png_file(argv[3],Nresult,Nresult,Nresult);
+				printf ("Noise Removal 1.2 Module Finished, with output Image : %s\n",argv[3]);
 				/*
 				gdhody 29/1/2017
 				*/	
