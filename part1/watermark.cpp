@@ -85,9 +85,9 @@ SDoublePlane mark_image(const SDoublePlane &input, int N){
 	fft(input,real,imagine);
 	int centerPoint = input.rows()/2 - 1;
 	//---RADIUS---
-	int radius = (int)(1 * (input.rows()/3));
+	int radius = (int)(1 * (input.rows()/2))-50;
 	//---ALPHA---
-	double alpha = 500.00;
+	double alpha = 25.00;
 	//4 Quadrants
 	int quadrantL = l / 4;
 	//Angle, Real Value Holder, Absolute Constant
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
 	string op(argv[4]);*/
 	if(strcmp(argv[4],"add")==0)
 	  {
-		SDoublePlane Aresult = mark_image(input_image,72);
+		SDoublePlane Aresult = mark_image(input_image,90);
 		SImageIO::write_png_file(argv[3],Aresult,Aresult,Aresult);
 		printf ("Watermark Add 1.3 Module Finished, with output Image : %s\n",argv[3]);
 	  }
