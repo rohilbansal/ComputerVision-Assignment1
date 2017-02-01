@@ -18,6 +18,10 @@
 #include <math.h>
 #include <typeinfo>
 
+
+#define PI 3.14159265
+
+
 using namespace std;
 
 // This code requires that input be a *square* image, and that each dimension
@@ -47,13 +51,13 @@ void ifft(const SDoublePlane &input_real, const SDoublePlane &input_imag, SDoubl
 }
 
 // Write this in Part 1.1
-//SDoublePlane fft_magnitude(const SDoublePlane &fft_real, const SDoublePlane &fft_imag);
+SDoublePlane fft_magnitude(const SDoublePlane &fft_real, const SDoublePlane &fft_imag);
 
 // Write this in Part 1.2
 
 
 // Write this in Part 1.3 -- add watermark N to image
-SDoublePlane mark_image(const SDoublePlane &input, int N);
+
 
 // Write this in Part 1.3 -- check if watermark N is in image
 SDoublePlane check_image(const SDoublePlane &input, int N);
@@ -63,6 +67,71 @@ SDoublePlane check_image(const SDoublePlane &input, int N);
 /*
 gdhody 29-Jan-2017
 */
+SDoublePlane mark_image(const SDoublePlane &input, int N){
+	//Generating the v vector through N and l
+	srand(N);
+	SDoublePlane finalC = SDoublePlane(input.rows(),input.cols());
+	//---L---
+	int l = N;
+	double *v;
+	v = new double[l];
+	//Assigning the v vector with key N
+	for(int bitGen = 0;bitGen <= l; ++bitGen){
+		v[bitGen] = (double) (rand() % 2);
+		//printf("%f",v[bitGen]);	
+	}
+	//Constants Initialization
+	SDoublePlane real,imagine;
+	fft(input,real,imagine);
+	int centerPoint = input.rows()/2 - 1;
+	//---RADIUS---
+	int radius = (int)(1 * (input.rows()/3));
+	//---ALPHA---
+	double alpha = 500.00;
+	//4 Quadrants
+	int quadrantL = l / 4;
+	//Angle, Real Value Holder, Absolute Constant
+	double thetha = 0.0, Rvalue, negativeConstant = 1.0;
+	int moveConstantOverV = 0;
+	//Center of FFT
+	int Xcenter = centerPoint, Ycenter = centerPoint;
+	//To visualize circular watermark
+	for(int i=0;i < input.rows();++i){
+		for(int j=0;j < input.cols();++j){
+			finalC[i][j] = 0;
+		}
+	}
+	printf("Initialization For Watermark Done\n");
+	//Updating Real Values to add watermark	
+	for(int quad = 0; quad < 4; ++quad){
+		for(int loop = 0; loop < quadrantL; ++loop){
+			thetha = (PI* ((double)(quad*90.00) + ((loop+1)*(90.00/(double)quadrantL)) )) / 180.00;
+			Rvalue = real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))];
+			//printf("Previous%f\n", Rvalue);
+			//printf("%f\n",(alpha * abs(Rvalue) * ((double)(v[moveConstantOverV]))));
+			negativeConstant = 1.0;
+			if (Rvalue < 0.0)
+				negativeConstant = -1.0;
+			//printf("%f,%f,%f\n",alpha,Rvalue*negativeConstant,v[moveConstantOverV]);
+			real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))] = Rvalue + (alpha * Rvalue * negativeConstant * v[moveConstantOverV]);
+			//printf("%d,%d,%d\n",quad,loop,moveConstantOverV);
+			finalC[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))] = v[moveConstantOverV]*255;	
+			moveConstantOverV = moveConstantOverV + 1;
+			//printf("Looped%f\n\n", real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))]);
+		}
+	}
+	SDoublePlane watermarkFFT = fft_magnitude(real,imagine);
+	SImageIO::write_png_file("Watermark_FFT.png",watermarkFFT,watermarkFFT,watermarkFFT);
+	SDoublePlane outputReturnImage;
+	ifft(real,imagine,outputReturnImage);
+	SImageIO::write_png_file("Watermark_Circle_Illusration.png",finalC,finalC,finalC);
+	printf("ADD-Watermark FFT and Circle Illustration Images Generated For Referral\n");
+	return outputReturnImage;
+}
+
+
+
+
 SDoublePlane fft_magnitude(const SDoublePlane &fft_real, const SDoublePlane &fft_imag){
 	
 	//Declaring spectrogram that contains magnitude of FFT
@@ -200,25 +269,27 @@ int main(int argc, char **argv)
       }
     else if(part == "1.3")
       {
-	if(argc < 6)
+	/*if(argc < 6)
 	  {
 	    cout << "Need 6 parameters for watermark part:" << endl;
 	    cout << "    p2 1.3 inputfile outputfile operation N" << endl;
 	    return -1;
 	  }
-	string op(argv[4]);
-	if(op == "add")
+	string op(argv[4]);*/
+	if(strcmp(argv[4],"add")==0)
 	  {
-	    // add watermark
+		SDoublePlane Aresult = mark_image(input_image,72);
+		SImageIO::write_png_file(argv[3],Aresult,Aresult,Aresult);
+		printf ("Watermark Add 1.3 Module Finished, with output Image : %s\n",argv[3]);
 	  }
-	else if(op == "check")
+	else if(strcmp(argv[4],"check")==0)
 	  {
 	    // check watermark
 	  }
 	else
 	  throw string("Bad operation!");
        
-	int N = atoi(argv[5]);
+	//int N = atoi(argv[5]);
       }
     else
       throw string("Bad part!");
