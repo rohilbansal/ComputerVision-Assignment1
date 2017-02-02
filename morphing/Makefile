@@ -1,7 +1,7 @@
-all: watermark 
+all: morph 
 
-watermark: watermark.cpp
-	g++ watermark.cpp -o watermark -lpng -I.
+morph: morph.cpp
+	g++ morph.cpp -o morph -lpng -I.
 
 clean:
-	rm watermark 
+	rm morph 
