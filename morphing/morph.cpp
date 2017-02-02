@@ -47,22 +47,22 @@ int main(int argc, char** argv){
 	SDoublePlane highPass = SDoublePlane(input_1.rows(), input_1.cols());
 	SDoublePlane morphPass = SDoublePlane(input_1.rows(), input_1.cols());
 
-	for(int i=1 ; i<input_1.rows()-1; i++){
-		for(int j=1; j<input_1.cols()-1; j++){
+	for(int i=2 ; i<input_1.rows()-2; i++){
+		for(int j=2; j<input_1.cols()-2; j++){
 			for(int k=0; k<gaussian.rows(); k++){
 				for(int l=0; l<gaussian.cols(); l++){
-					lowPass_1[i][j] += input_1[i][j] * (double)gaussian[gaussian.rows()-k-1][gaussian.cols()-l-1];
+					lowPass_1[i][j] = lowPass_1[i][j] + input_1[-2+k+i][-2+l+j] * (double)gaussian[gaussian.rows()-k-1][gaussian.cols()-l-1];
 				}
 			}	
 		}
 	}
 	SImageIO::write_png_file("lowPass_1.png", lowPass_1, lowPass_1, lowPass_1);
 
-	for(int i=1 ; i<input_2.rows()-1; i++){
-		for(int j=1; j<input_2.cols()-1; j++){
+	for(int i=2 ; i<input_2.rows()-2; i++){
+		for(int j=2; j<input_2.cols()-2; j++){
 			for(int k=0; k<gaussian.rows(); k++){
 				for(int l=0; l<gaussian.cols(); l++){
-					lowPass_2[i][j] += input_2[i][j] * (double)gaussian[gaussian.rows()-k-1][gaussian.cols()-l-1];
+					lowPass_2[i][j] += input_2[-2+i+k][-2+j+l] * (double)gaussian[gaussian.rows()-k-1][gaussian.cols()-l-1];
 				}
 			}	
 		}
