@@ -10,6 +10,7 @@ using namespace std;
 
 int main(int argc, char** argv){
 
+	//Gaussian Filter 5*5 Sigma = 10
 	SDoublePlane gaussian = SDoublePlane(5,5);
 	gaussian[0][0] = 0.039206;
 	gaussian[0][1] = 0.039798;
@@ -37,9 +38,11 @@ int main(int argc, char** argv){
 	gaussian[4][3] = 0.039798;
 	gaussian[4][4] = 0.039206;
 	
+	//Two Input Files Names To Be Morphed
 	string inputFile_1 = argv[1];
 	string inputFile_2 = argv[2];
 
+	//Double Dimension Array To Process Images
 	SDoublePlane input_1 = SImageIO::read_png_file(inputFile_1.c_str());
 	SDoublePlane input_2 = SImageIO::read_png_file(inputFile_2.c_str());
 	SDoublePlane lowPass_1 = SDoublePlane(input_1.rows(), input_1.cols());
@@ -47,6 +50,7 @@ int main(int argc, char** argv){
 	SDoublePlane highPass = SDoublePlane(input_1.rows(), input_1.cols());
 	SDoublePlane morphPass = SDoublePlane(input_1.rows(), input_1.cols());
 
+	//Convolution Gaussian Procedure - Low Pass Filter
 	for(int i=2 ; i<input_1.rows()-2; i++){
 		for(int j=2; j<input_1.cols()-2; j++){
 			for(int k=0; k<gaussian.rows(); k++){
@@ -56,8 +60,10 @@ int main(int argc, char** argv){
 			}	
 		}
 	}
+	//Low Pass 1st Image
 	SImageIO::write_png_file("lowPass_1.png", lowPass_1, lowPass_1, lowPass_1);
 
+	//Convolution Gaussian Procedure - Low Pass Filter
 	for(int i=2 ; i<input_2.rows()-2; i++){
 		for(int j=2; j<input_2.cols()-2; j++){
 			for(int k=0; k<gaussian.rows(); k++){
@@ -67,21 +73,26 @@ int main(int argc, char** argv){
 			}	
 		}
 	}
+	//Low Pass 2nd Image
 	SImageIO::write_png_file("lowPass_2.png", lowPass_2, lowPass_2, lowPass_2);
 
+	//High Pass = OriginalImage - LowImage
 	for(int i=1; i<input_2.rows()-1; i++){
 		for(int j=1; j<input_2.cols()-1; j++){
 			highPass[i][j] = input_2[i][j] - lowPass_2[i][j];
 		}
 	}
+	//High Pass Image
 	SImageIO::write_png_file("highPass.png", highPass, highPass, highPass);
 
+	//Morph Image = LowPass + HighPass
 	for(int i=1; i<input_2.rows()-1; i++){
 		for(int j=1; j<input_2.cols()-1; j++){
 			morphPass[i][j] = (lowPass_1[i][j] + highPass[i][j]) / 2;
 		}
 	}
 	
+	//Output Image
 	SImageIO::write_png_file("output.png", morphPass, morphPass, morphPass);
 	return 0;
 }
