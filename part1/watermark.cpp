@@ -82,16 +82,16 @@ int main(int argc, char **argv)
       {
         // generate a binary vector of l length, we can have this l in a constant file
 
-        cout << l_param << endl;
+        // cout << l_param << endl;
         std::vector<int> v(l_param);
         srand(N);
         for(int i = 0; i < l_param; i++)
           v[i] = rand()&1;
 
          // print binary vector
-        for (std::vector<int>::const_iterator i = v.begin(); i != v.end(); ++i)
-          std::cout << *i << ' ';
-        cout << endl;
+        //for (std::vector<int>::const_iterator i = v.begin(); i != v.end(); ++i)
+        //  std::cout << *i << ' ';
+        // cout << endl;
 
         SDoublePlane fft_real, ft_imag;
         // convert image into frequency domain using FFT
@@ -100,16 +100,31 @@ int main(int argc, char **argv)
         SDoublePlane input_real = SDoublePlane(fft_real.rows(), fft_real.cols());
         SDoublePlane input_imag = SDoublePlane(fft_real.rows(), fft_real.cols());
 
-        cout << fft_real.rows() << " " << fft_real.cols() <<  " " << fft_real[0][0] << endl;
+        // cout << fft_real.rows() << " " << fft_real.cols() <<  " " << fft_real[0][0] << endl;
         for(int i = 0; i < fft_real.rows(); i++){
           for(int j = 0; j < fft_real.cols(); j++){
+            if(i >= 156 && j >= 156 && i <= 162 && j <= 162){
+              fft_real[i][j] = fft_real[0][0];
+              ft_imag[i][j] = ft_imag[0][0];
+            }
+
+            if(i >= 350 && j >= 350 && i <= 356 && j <= 356){
+              fft_real[i][j] = fft_real[0][0];
+              ft_imag[i][j] = ft_imag[0][0];
+            }
+
             input_real[i][j] = log(sqrt((fft_real[i][j] * fft_real[i][j]) + (ft_imag[i][j] * ft_imag[i][j])));
+
           }
         }
 
         //SImageIO::
-         SImageIO::write_png_file(inputFile.c_str());
+        SImageIO::write_png_file("cleaned_spectogram", input_real, input_real, input_real);
 
+       SDoublePlane output_real;
+
+       ifft(fft_real, ft_imag, output_real);
+       SImageIO::write_png_file(outputFile.c_str(), output_real, output_real, output_real);
 
 	// do something here!
       }
