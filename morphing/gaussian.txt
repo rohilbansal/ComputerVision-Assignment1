@@ -1,0 +1,10 @@
+SDoublePlane gaussian = new SDoublePlane(3,3);
+gaussian[0][0] = 0.075;
+gaussian[0][1] = 0.125;
+gaussian[0][2] = 0.075;
+gaussian[1][0] = 0.125;
+gaussian[1][1] = 0.200;
+gaussian[1][2] = 0.125;
+gaussian[2][0] = 0.075;
+gaussian[2][1] = 0.125;
+gaussian[2][2] = 0.075;
