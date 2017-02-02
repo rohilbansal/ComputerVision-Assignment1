@@ -89,9 +89,9 @@ int main(int argc, char **argv)
           v[i] = rand()&1;
 
          // print binary vector
-        //for (std::vector<int>::const_iterator i = v.begin(); i != v.end(); ++i)
-        //  std::cout << *i << ' ';
-        // cout << endl;
+        for (std::vector<int>::const_iterator i = v.begin(); i != v.end(); ++i)
+          std::cout << *i << ' ';
+         cout << endl;
 
         SDoublePlane fft_real, ft_imag;
         // convert image into frequency domain using FFT
@@ -119,12 +119,52 @@ int main(int argc, char **argv)
         }
 
         //SImageIO::
-        SImageIO::write_png_file("cleaned_spectogram", input_real, input_real, input_real);
+        //SImageIO::write_png_file("cleaned_spectogram.png", input_real, input_real, input_real);
 
        SDoublePlane output_real;
 
        ifft(fft_real, ft_imag, output_real);
-       SImageIO::write_png_file(outputFile.c_str(), output_real, output_real, output_real);
+       SImageIO::write_png_file("cleaned_noise.png", output_real, output_real, output_real);
+
+
+       // in a circle add the frequencies
+       // center => rows/2, cols/2
+       // around the center, pick a radius
+       // along the circumference, choose l evenly-spaced bins along the circle
+       // and modify each of those with one bit of the sequence
+       int center_x = fft_real.rows() / 2;
+       int center_y = fft_real.cols() / 2;
+       int x, y;
+       float angle;
+       // we can calculate the angle made 
+      for(int i = 1; i <= l_param; i++){
+        angle = (360/l_param) * i;
+        x = center_x + radius_param * cos((angle * PI)/ 180);
+        y = center_y + radius_param * sin((angle * PI)/ 180);
+        //cout << x << " " << y << endl;
+        fft_real[x][y] = fft_real[x][y] + alpha_param * fabs(fft_real[x][y]) * v[i - 1];
+      }
+
+      // water marked output file
+      ifft(fft_real, ft_imag, output_real);
+      SImageIO::write_png_file(outputFile.c_str(), output_real, output_real, output_real);
+
+
+      // check the spectogram for the circle
+      SDoublePlane outFile_image = SImageIO::read_png_file(outputFile.c_str());
+
+      SDoublePlane output_fft_real, output_ft_imag;
+      // convert image into frequency domain using FFT
+      fft(outFile_image, output_fft_real, output_ft_imag);
+      SDoublePlane output_real1 = SDoublePlane(output_fft_real.rows(), output_fft_real.cols());
+
+      for(int i = 0; i < output_fft_real.rows(); i++){
+        for(int j = 0; j < output_ft_imag.cols(); j++){
+          output_real1[i][j] = log(sqrt((output_fft_real[i][j] * output_fft_real[i][j]) + (output_ft_imag[i][j] * output_ft_imag[i][j])));
+        }
+      }
+      SImageIO::write_png_file("output_spectogram.png", output_real1, output_real1, output_real1);
+
 
 	// do something here!
       }
