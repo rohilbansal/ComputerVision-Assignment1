@@ -15,6 +15,9 @@
 #include <SImage.h>
 #include <SImageIO.h>
 #include <fft.h>
+#include <constants.h>
+#include <vector>
+#include <math.h>
 
 using namespace std;
 
@@ -67,16 +70,47 @@ int main(int argc, char **argv)
 	cout << "    p2 problemID inputfile outputfile" << endl;
 	return -1;
       }
-    
+
     string part = argv[1];
     string inputFile = argv[2];
     string outputFile = argv[3];
     cout << "In: " << inputFile <<"  Out: " << outputFile << endl;
-    
+
     SDoublePlane input_image = SImageIO::read_png_file(inputFile.c_str());
-    
+    int N = atoi(argv[4]);
     if(part == "1.1")
       {
+        // generate a binary vector of l length, we can have this l in a constant file
+
+        cout << l_param << endl;
+        std::vector<int> v(l_param);
+        srand(N);
+        for(int i = 0; i < l_param; i++)
+          v[i] = rand()&1;
+
+         // print binary vector
+        for (std::vector<int>::const_iterator i = v.begin(); i != v.end(); ++i)
+          std::cout << *i << ' ';
+        cout << endl;
+
+        SDoublePlane fft_real, ft_imag;
+        // convert image into frequency domain using FFT
+        fft(input_image, fft_real, ft_imag);
+
+        SDoublePlane input_real = SDoublePlane(fft_real.rows(), fft_real.cols());
+        SDoublePlane input_imag = SDoublePlane(fft_real.rows(), fft_real.cols());
+
+        cout << fft_real.rows() << " " << fft_real.cols() <<  " " << fft_real[0][0] << endl;
+        for(int i = 0; i < fft_real.rows(); i++){
+          for(int j = 0; j < fft_real.cols(); j++){
+            input_real[i][j] = log(sqrt((fft_real[i][j] * fft_real[i][j]) + (ft_imag[i][j] * ft_imag[i][j])));
+          }
+        }
+
+        //SImageIO::
+         SImageIO::write_png_file(inputFile.c_str());
+
+
 	// do something here!
       }
     else if(part == "1.2")
@@ -102,22 +136,12 @@ int main(int argc, char **argv)
 	  }
 	else
 	  throw string("Bad operation!");
-       
-	int N = atoi(argv[5]);
-      }
+	      }
     else
       throw string("Bad part!");
 
-  } 
+  }
   catch(const string &err) {
     cerr << "Error: " << err << endl;
   }
 }
-
-
-
-
-
-
-
-
