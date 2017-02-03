@@ -37,6 +37,7 @@ using namespace std;
 
 // Draws a rectangle on an image plane, using the specified gray level value and line width.
 //
+//gdhodyC - Final stop for drawing the box over the cars detected
 void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom, int _right, double graylevel, int width)
 {
   for(int w=-width/2; w<=width/2; w++) {
@@ -60,12 +61,15 @@ void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom, in
 // DetectedBox class may be helpful!
 //  Feel free to modify.
 //
+//gdhodyC - Detected Box class details
 class DetectedBox {
 public:
   int row, col, width, height;
   double confidence;
 };
 
+
+//gdhodyC - write files code
 // Function that outputs the ascii detection output file
 void  write_detection_txt(const string &filename, const vector<DetectedBox> &cars)
 {
@@ -89,12 +93,33 @@ void  write_detection_image(const string &filename, const vector<DetectedBox> &c
 
   SImageIO::write_png_file(filename.c_str(), output_planes[0], output_planes[1], output_planes[2]);
 }
-
+//End of write files
 
 
 // The rest of these functions are incomplete. These are just suggestions to 
 // get you started -- feel free to add extra functions, change function
 // parameters, etc.
+/*
+gdhody Custom functions
+*/
+double gaussianValue(const int x, const int y, const int sigma){
+	return ((x*x + y*y)/(2*sigma*sigma));
+}
+
+
+SDoublePlane gaussian(const SDoublePlane &gaussian,const int windows_size,const int sigma){
+	
+}
+
+
+
+
+
+/*
+Custom functions end
+*/
+
+
 
 // Convolve an image with a separable convolution kernel
 //

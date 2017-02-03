@@ -20,6 +20,10 @@
 
 
 #define PI 3.14159265
+#define WATERMARK_CONSTANT 0.25
+#define WATERMARK_ALPHA 25
+//RADIUS_OF_WATERMARK = (IMAGE_WIDTH/2) - WATERMARK_RADIUS_OFFSET
+#define WATERMARK_RADIUS_OFFSET 50
 
 
 using namespace std;
@@ -50,23 +54,81 @@ void ifft(const SDoublePlane &input_real, const SDoublePlane &input_imag, SDoubl
   FFT_2D(0, output_real, output_imag);
 }
 
-// Write this in Part 1.1
+
+//Definition of function
 SDoublePlane fft_magnitude(const SDoublePlane &fft_real, const SDoublePlane &fft_imag);
 
-// Write this in Part 1.2
+
+SDoublePlane check_image(const SDoublePlane &input, int N){
+	srand(N);
+	double *v,*c;
+	SDoublePlane real,imagine;
+	fft(input,real,imagine);
+	// 4 is for quadrant division  
+	//---L---
+	int l = N;
+	v = new double[l];
+	c = new double[l];
+	for(int bitGen = 0;bitGen <= l; ++bitGen){
+		v[bitGen] = (double) (rand() % 2);
+	}
+	//Constants Initialization
+	int centerPoint = input.rows()/2 - 1;
+	//---RADIUS---
+	int radius = (int)(1 * (input.rows()/2)) - WATERMARK_RADIUS_OFFSET;
+	//---ALPHA---
+	double alpha = WATERMARK_ALPHA;
+	//4 Quadrants
+	int quadrantL = l / 4;
+	//Angle, Real Value Holder, Absolute Constant
+	double thetha = 0.0, Rvalue;
+	int moveConstantOverV = 0;
+	//Center of FFT
+	int Xcenter = centerPoint, Ycenter = centerPoint;
+	//To visualize circular watermark
+	printf("Initialization For Watermark Done\n");
+	//Finding Real values to find watermark	
+	for(int quad = 0; quad < 4; ++quad){
+		for(int loop = 0; loop < quadrantL; ++loop){
+			thetha = (PI* ((double)(quad*90.00) + ((loop+1)*(90.00/(double)quadrantL)) )) / 180.00;
+			Rvalue = real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))];
+			c[moveConstantOverV++] = Rvalue;
+		}
+	}
+
+	//Calculating correlation between real values and vector v
+	double c_mean, v_mean, c_std, v_std, cv_cov;
+
+	//Mean of c and v
+	for(int loop = 0; loop < l; ++loop){
+		c_mean += c[loop];
+		v_mean += v[loop];
+	}
+	c_mean /= l;
+	v_mean /= l;
+
+	//Standard Deviation and covariance
+	for(int loop = 0; loop < l; ++loop){
+		c_std += (c[loop] - c_mean) * (c[loop] - c_mean);
+		v_std += (v[loop] - v_mean) * (v[loop] - v_mean);
+		cv_cov += (c[loop] - c_mean) * (v[loop] - v_mean);
+	}
+
+	//Pearson's Correlation r
+	double pearsonCorrelation = cv_cov / sqrt(c_std * v_std);
+	
+	printf("Pearson's Correlation found to be with c and v vectors : %f\n",pearsonCorrelation);
+	
+	//Watermark present or not
+	if (pearsonCorrelation >= WATERMARK_CONSTANT)
+		printf("WaterMark Present in Image\n");
+	else
+		printf("Watermark Not Present in Image\n"); 
+	
+	return fft_magnitude(real,imagine);
+}
 
 
-// Write this in Part 1.3 -- add watermark N to image
-
-
-// Write this in Part 1.3 -- check if watermark N is in image
-SDoublePlane check_image(const SDoublePlane &input, int N);
-
-
-
-/*
-gdhody 29-Jan-2017
-*/
 SDoublePlane mark_image(const SDoublePlane &input, int N){
 	//Generating the v vector through N and l
 	srand(N);
@@ -85,9 +147,9 @@ SDoublePlane mark_image(const SDoublePlane &input, int N){
 	fft(input,real,imagine);
 	int centerPoint = input.rows()/2 - 1;
 	//---RADIUS---
-	int radius = (int)(1 * (input.rows()/2))-50;
+	int radius = (int)(1 * (input.rows()/2)) - WATERMARK_RADIUS_OFFSET;
 	//---ALPHA---
-	double alpha = 25.00;
+	double alpha = WATERMARK_ALPHA;
 	//4 Quadrants
 	int quadrantL = l / 4;
 	//Angle, Real Value Holder, Absolute Constant
@@ -105,21 +167,21 @@ SDoublePlane mark_image(const SDoublePlane &input, int N){
 	//Updating Real Values to add watermark	
 	for(int quad = 0; quad < 4; ++quad){
 		for(int loop = 0; loop < quadrantL; ++loop){
+			//Calculating thetha to to find bin/point in our watermark circle to insert magnitude
 			thetha = (PI* ((double)(quad*90.00) + ((loop+1)*(90.00/(double)quadrantL)) )) / 180.00;
 			Rvalue = real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))];
-			//printf("Previous%f\n", Rvalue);
-			//printf("%f\n",(alpha * abs(Rvalue) * ((double)(v[moveConstantOverV]))));
 			negativeConstant = 1.0;
 			if (Rvalue < 0.0)
 				negativeConstant = -1.0;
-			//printf("%f,%f,%f\n",alpha,Rvalue*negativeConstant,v[moveConstantOverV]);
+			//R(@) = R(@) + (alpha * |R(@)| * v[@])	
 			real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))] = Rvalue + (alpha * Rvalue * negativeConstant * v[moveConstantOverV]);
-			//printf("%d,%d,%d\n",quad,loop,moveConstantOverV);
+			//For Watermark_ILLUSTRATION
 			finalC[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))] = v[moveConstantOverV]*255;	
 			moveConstantOverV = moveConstantOverV + 1;
-			//printf("Looped%f\n\n", real[Xcenter + (int)ceil(radius * cos(thetha))][Ycenter + (int)ceil(radius * sin(thetha))]);
 		}
 	}
+
+	//Printing Images FFT with watermark and its Illustration
 	SDoublePlane watermarkFFT = fft_magnitude(real,imagine);
 	SImageIO::write_png_file("Watermark_FFT.png",watermarkFFT,watermarkFFT,watermarkFFT);
 	SDoublePlane outputReturnImage;
@@ -195,11 +257,6 @@ SDoublePlane remove_interference(const SDoublePlane &input){
 				real[interferenceBox[1] + rowLoop + 1][interferenceBox[1] + columnLoop] = 0.0;
 				imagine[interferenceBox[0] + rowLoop][interferenceBox[0] + columnLoop] = 0.0;
 				imagine[interferenceBox[1] + rowLoop + 1][interferenceBox[1] + columnLoop] = 0.0;
-				/*Remove Complete || Horizontal Lines
-				real[interference[0] + rowLoop][columnLoop] = (double)0;	
-				real[interference[1] + rowLoop][columnLoop] = (double)0;
-				imagine[interference[0] + rowLoop][columnLoop] = (double)0;    
-			       	imagine[interference[1] + rowLoop][columnLoop] = (double)0;*/
 			}
 		}
 	Mresult = fft_magnitude(real,imagine);
@@ -211,9 +268,6 @@ SDoublePlane remove_interference(const SDoublePlane &input){
 	//Return The Grayscale Component To Be Written Back To PNG
 	return result;
 }
-/*
-gdhody 29-Jan-2017
-*/
 
 
 
@@ -238,9 +292,6 @@ int main(int argc, char **argv)
 
     if(strcmp(argv[1],"1.1")==0)
       {
-				/*
-				gdhody 29/1/2017
-				*/
 				SDoublePlane real,imagine,result;
 				//Do the fft
 				fft(input_image,real,imagine);
@@ -248,48 +299,38 @@ int main(int argc, char **argv)
 				result = fft_magnitude(real,imagine);
 				SImageIO::write_png_file(argv[3],result,result,result);
 				printf ("Magnitude 1.1 Module Finished, with output Image : %s\n",argv[3]);
-				/*
-				gdhody 29/1/2017
-				*/	
       }
     else if(strcmp(argv[1],"1.2")==0)
       {
-				/*
-				gdhody 29/1/2017
-				*/
 				SDoublePlane Nresult;
 				//Remove the noise
 				Nresult = remove_interference(input_image);
 				//Save The Image
 				SImageIO::write_png_file(argv[3],Nresult,Nresult,Nresult);
 				printf ("Noise Removal 1.2 Module Finished, with output Image : %s\n",argv[3]);
-				/*
-				gdhody 29/1/2017
-				*/	
       }
     else if(part == "1.3")
       {
-	/*if(argc < 6)
+	if(argc < 6)
 	  {
 	    cout << "Need 6 parameters for watermark part:" << endl;
 	    cout << "    p2 1.3 inputfile outputfile operation N" << endl;
 	    return -1;
 	  }
-	string op(argv[4]);*/
 	if(strcmp(argv[4],"add")==0)
 	  {
-		SDoublePlane Aresult = mark_image(input_image,90);
+		SDoublePlane Aresult = mark_image(input_image,atoi(argv[5]));
 		SImageIO::write_png_file(argv[3],Aresult,Aresult,Aresult);
 		printf ("Watermark Add 1.3 Module Finished, with output Image : %s\n",argv[3]);
 	  }
 	else if(strcmp(argv[4],"check")==0)
 	  {
-	    // check watermark
-	  }
+		SDoublePlane Aresult = check_image(input_image,atoi(argv[5]));
+		SImageIO::write_png_file(argv[3],Aresult,Aresult,Aresult);
+		printf ("Watermark Check 1.4 Module Finished, with output Image : %s\n",argv[3]);
+    	  }
 	else
 	  throw string("Bad operation!");
-       
-	//int N = atoi(argv[5]);
       }
     else
       throw string("Bad part!");
