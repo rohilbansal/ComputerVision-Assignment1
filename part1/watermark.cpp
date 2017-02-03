@@ -136,7 +136,11 @@ int main(int argc, char **argv)
        int center_y = fft_real.cols() / 2;
        int x, y;
        float angle;
-       // we can calculate the angle made 
+
+       // store the positions of points along the circumference
+       //std::vector< std::vector<int> >
+
+       // we can calculate the angle made
       for(int i = 1; i <= l_param; i++){
         angle = (360/l_param) * i;
         x = center_x + radius_param * cos((angle * PI)/ 180);
@@ -144,6 +148,11 @@ int main(int argc, char **argv)
         //cout << x << " " << y << endl;
         fft_real[x][y] = fft_real[x][y] + alpha_param * fabs(fft_real[x][y]) * v[i - 1];
       }
+
+      //cout << pos << endl;
+      //for (std::vector< std::vector<int> >::const_iterator i = pos.begin(); i != pos.end(); ++i)
+      //std::cout << i[0] << ' ';
+      // cout << endl;
 
       // water marked output file
       ifft(fft_real, ft_imag, output_real);
@@ -157,16 +166,63 @@ int main(int argc, char **argv)
       // convert image into frequency domain using FFT
       fft(outFile_image, output_fft_real, output_ft_imag);
       SDoublePlane output_real1 = SDoublePlane(output_fft_real.rows(), output_fft_real.cols());
-
+      double minVal = LONG_MAX, maxVal = LONG_MIN;
       for(int i = 0; i < output_fft_real.rows(); i++){
         for(int j = 0; j < output_ft_imag.cols(); j++){
           output_real1[i][j] = log(sqrt((output_fft_real[i][j] * output_fft_real[i][j]) + (output_ft_imag[i][j] * output_ft_imag[i][j])));
+
+          if(output_real1[i][j] < minVal)
+            minVal = output_real1[i][j];
+
+          if(output_real1[i][j] > maxVal)
+            maxVal = output_real1[i][j];
         }
       }
+
+      cout << "maxVal " << maxVal << " " <<  "minVal " << minVal << endl;
+
+      for(int i = 0; i < output_fft_real.rows(); i++){
+        for(int j = 0; j < output_ft_imag.cols(); j++){
+          output_real1[i][j] = ((output_real1[i][j] - minVal) / (maxVal - minVal)) * 255.0;
+        }
+      }
+
       SImageIO::write_png_file("output_spectogram.png", output_real1, output_real1, output_real1);
 
+      SDoublePlane checkImage = SImageIO::read_png_file(outputFile.c_str());
+      SDoublePlane checkImage_real, checkImage_imag;
+      fft(checkImage, checkImage_real, checkImage_imag);
 
-	// do something here!
+      std::vector<double> checkFreq (l_param);
+
+      for(int i = 1; i <= l_param; i++){
+        angle = (360/l_param) * i;
+        x = center_x + radius_param * cos((angle * PI)/ 180);
+        y = center_y + radius_param * sin((angle * PI)/ 180);
+        checkFreq[i - 1] = checkImage_real[x][y];
+      }
+
+      double meanV, meanC;
+      for(int i = 0; i < l_param; i++)
+        meanC += checkFreq[i];
+
+      for(int i = 0; i < l_param; i++)
+        meanV += v[i];
+
+      meanV = meanV / l_param;
+
+      meanC = meanC / l_param;
+
+      double stdev_v, stdev_c, covar_cv;
+      for(int i = 0; i < l_param; i++){
+        covar_cv += (v[i] - meanV) * (checkFreq[i] - meanC);
+        stdev_v += (v[i] - meanV) * (v[i] - meanV);
+        stdev_c += (checkFreq[i] - meanC) * (checkFreq[i] - meanC);
+      }
+
+      double coorelation = covar_cv / sqrt(stdev_v * stdev_c);
+      cout << "coorelation " << coorelation << endl;
+
       }
     else if(part == "1.2")
       {
