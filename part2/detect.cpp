@@ -7,6 +7,7 @@
 //
 //
 
+
 #include <SImage.h>
 #include <SImageIO.h>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <math.h>
 
 #define PI 3.14159265
+
 
 using namespace std;
 
@@ -151,7 +153,29 @@ SDoublePlane create_gaussian_kernel_2D(const int windowSize,const int sigma){
 			
 }
 
+SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_extend){
 
+	SDoublePlane extended_image(input.rows() + (2 * length_to_extend), input.cols() + (2 * length_to_extend));
+	
+	//Fills the Tic Toe Positions of the 2D array with boundary values
+	for (int outer_loop = length_to_extend; outer_loop > 0; --outer_loop){
+		for(int inner_loop = length_to_extend; inner_loop < extended_image.rows()-length_to_extend; ++inner_loop){
+			extended_image[outer_loop-1][inner_loop] = input[0][inner_loop - length_to_extend];
+			extended_image[extended_image.rows() - outer_loop][inner_loop] = input[input.rows() - 1][inner_loop - length_to_extend];
+			extended_image[inner_loop][extended_image.rows() - outer_loop] = input[inner_loop - length_to_extend][input.cols() - 1];
+			extended_image[inner_loop][outer_loop-1] = input[inner_loop - length_to_extend][0];
+		}
+	}
+
+	for (int outer_loop = length_to_extend - 1; outer_loop >= 0; --outer_loop){
+		for (int inner_loop = length_to_extend - 1; inner_loop >= 0; --inner_loop){
+			extended_image[outer_loop][inner_loop] = extended_image[length_to_extend][length_to_extend];
+			extended_image[outer_loop][extended_image.cols() - inner_loop - 1] = extended_image[length_to_extend][extended_image.cols() - length_to_extend];
+			extended_image[extended_image.rows() - outer_loop - 1][inner_loop] = extended_image[extended_image.rows() - length_to_extend][length_to_extend];
+			extended_image[extended_image.rows() - outer_loop - 1][extended_image.cols() - inner_loop - 1] = extended_image[extended_image.rows() - length_to_extend][extended_image.cols() - length_to_extend];	
+		}
+	}
+}
 
 
 
@@ -176,7 +200,18 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const SDoublePlane &r
 //
 SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &filter)
 {
-  SDoublePlane output(input.rows(), input.cols());
+	SDoublePlane output(input.rows(), input.cols());        
+
+	//Convolution Gaussian Procedure
+        for(int i=2 ; i<input.rows()-2; i++){
+                for(int j=2; j<input.cols()-2; j++){
+                        for(int k=0; k<filter.rows(); k++){
+                                for(int l=0; l<filter.cols(); l++){
+                                        output[i][j] = output[i][j] + input[-2+k+i][-2+l+j] * (double)filter[filter.rows()-k-1][filter.cols()-l-1];
+                                }
+                        }
+                }
+        }
 
   // Convolution code here
   
@@ -222,11 +257,10 @@ int main(int argc, char *argv[])
     	}
 
   	string input_filename(argv[1]);
-  	SDoublePlane input_image= SImageIO::read_png_file(input_filename.c_str());
-    	
-	create_gaussian_kernel_2D(5,1);
-	create_gaussian_kernel_1D(5,1);
-
+  	SDoublePlane input_image= SImageIO::read_png_file(input_filename.c_str());	
+	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
+	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
+	SImageIO::write_png_file("output.png",smoothed_image,smoothed_image,smoothed_image);
 
 /*
   // test step 2 by applying mean filters to the input image
