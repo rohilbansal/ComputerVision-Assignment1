@@ -159,14 +159,26 @@ SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_ext
 	
 	//Fills the Tic Toe Positions of the 2D array with boundary values
 	for (int outer_loop = length_to_extend; outer_loop > 0; --outer_loop){
-		for(int inner_loop = length_to_extend; inner_loop < extended_image.rows()-length_to_extend; ++inner_loop){
+		for(int inner_loop = length_to_extend; inner_loop < extended_image.cols() - length_to_extend; ++inner_loop){
 			extended_image[outer_loop-1][inner_loop] = input[0][inner_loop - length_to_extend];
 			extended_image[extended_image.rows() - outer_loop][inner_loop] = input[input.rows() - 1][inner_loop - length_to_extend];
-			extended_image[inner_loop][extended_image.rows() - outer_loop] = input[inner_loop - length_to_extend][input.cols() - 1];
+		}
+		for(int inner_loop = length_to_extend; inner_loop < extended_image.rows() - length_to_extend; ++inner_loop){ 
+			extended_image[inner_loop][extended_image.cols() - outer_loop] = input[inner_loop - length_to_extend][input.cols() - 1];
 			extended_image[inner_loop][outer_loop-1] = input[inner_loop - length_to_extend][0];
 		}
 	}
+	
 
+	//Fill The extended image with the original image
+	for (int outer_loop = 0; outer_loop < input.rows(); ++outer_loop){
+			for (int inner_loop = 0; inner_loop < input.cols(); ++inner_loop){
+					extended_image[outer_loop + length_to_extend][inner_loop + length_to_extend] = input[outer_loop][inner_loop];
+			}
+	}
+
+
+	//Fills the Corner Box of Tic Toe Positions With Diagonal Element
 	for (int outer_loop = length_to_extend - 1; outer_loop >= 0; --outer_loop){
 		for (int inner_loop = length_to_extend - 1; inner_loop >= 0; --inner_loop){
 			extended_image[outer_loop][inner_loop] = extended_image[length_to_extend][length_to_extend];
@@ -175,6 +187,10 @@ SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_ext
 			extended_image[extended_image.rows() - outer_loop - 1][extended_image.cols() - inner_loop - 1] = extended_image[extended_image.rows() - length_to_extend][extended_image.cols() - length_to_extend];	
 		}
 	}
+
+	SImageIO::write_png_file("extended_image.png",extended_image,extended_image,extended_image);
+
+return extended_image;
 }
 
 
@@ -200,20 +216,24 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const SDoublePlane &r
 //
 SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &filter)
 {
+	int center_point = ((int)filter.rows() / 2);
+	int filterW, filterH;
+	filterW = filterH = filter.rows();
 	SDoublePlane output(input.rows(), input.cols());        
+	SDoublePlane complete_image = extend_image_boundaries(input,center_point);
 
 	//Convolution Gaussian Procedure
-        for(int i=2 ; i<input.rows()-2; i++){
-                for(int j=2; j<input.cols()-2; j++){
-                        for(int k=0; k<filter.rows(); k++){
-                                for(int l=0; l<filter.cols(); l++){
-                                        output[i][j] = output[i][j] + input[-2+k+i][-2+l+j] * (double)filter[filter.rows()-k-1][filter.cols()-l-1];
+        for(int i = center_point ; i < complete_image.rows() - center_point; i++){
+                for(int j = center_point; j < complete_image.cols() - center_point; j++){
+                        for(int k = 0; k < filter.rows(); k++){
+                                for(int l = 0; l < filter.cols(); l++){
+                                        output[i - center_point][j - center_point] = output[i - center_point][j - center_point] + (complete_image[k + i - center_point]
+														[l + j - center_point] * filter[filterH - k - 1][filterW - l - 1]);
                                 }
                         }
                 }
         }
 
-  // Convolution code here
   
   return output;
 }
