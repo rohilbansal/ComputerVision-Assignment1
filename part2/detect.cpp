@@ -16,6 +16,7 @@
 #include <fstream>
 #include <vector>
 #include <math.h>
+#include <limits.h>
 
 #define PI 3.14159265
 
@@ -199,17 +200,80 @@ return extended_image;
 Custom functions end
 */
 
+void min_max(const SDoublePlane &magnitude,double &minV,double &maxV){
+	//updating the normalied values in spectrogram for displaying in png image
+	for (int row_loop = 0;row_loop < magnitude.rows(); ++row_loop){
+	    for(int col_loop = 0;col_loop < magnitude.cols(); ++col_loop){
+				if (magnitude[row_loop][col_loop] < minV)
+						minV = magnitude[row_loop][col_loop];
+				if (magnitude[row_loop][col_loop] > maxV)
+					    maxV = magnitude[row_loop][col_loop];
+		}
+	}
+}
 
+
+
+
+void write_normalized_image(string file_name,SDoublePlane magnitude){
+	double minV, maxV;
+	min_max(magnitude, minV, maxV);
+	//printf("%f,%f\n", minV, maxV);
+	//updating the normalied values in spectrogram for displaying in png image
+	for (int rowLoop = 0;rowLoop < magnitude.rows(); ++rowLoop){
+	    for(int columnLoop = 0;columnLoop < magnitude.cols(); ++columnLoop){
+	        if (magnitude[rowLoop][columnLoop] != LONG_MIN) 
+	             magnitude[rowLoop][columnLoop] = ((magnitude[rowLoop][columnLoop] - minV) * (255.00/(maxV - minV)));
+	    }
+	}
+
+	SImageIO::write_png_file(file_name.c_str(),magnitude,magnitude,magnitude);
+}
 
 // Convolve an image with a separable convolution kernel
 //
-SDoublePlane convolve_separable(const SDoublePlane &input, const SDoublePlane &row_filter, const SDoublePlane &col_filter)
+SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_filter, const double *column_filter, int filter_size)
 {
-  SDoublePlane output(input.rows(), input.cols());
+	int center_point = ((int)(filter_size/2.00));
+	SDoublePlane complete_image = extend_image_boundaries(input,center_point);
+	SDoublePlane output = SDoublePlane(complete_image.rows(), complete_image.cols());
+	SDoublePlane Routput = SDoublePlane(input.rows(), input.cols());
+
+  for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
+		  for(int col_loop = 0; col_loop < complete_image.cols(); ++col_loop){
+				if (row_loop < center_point || row_loop >= input.rows() + center_point || col_loop < center_point || col_loop >= input.cols() + center_point)
+						output[row_loop][col_loop] = complete_image[row_loop][col_loop];
+		  }
+  }
+
+
+
+
+//Can be further improved with dynamic programming
+  for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
+		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
+				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
+							output[row_loop][col_loop] += complete_image[row_loop - filter_move][col_loop] * 
+								  (*(column_filter + center_point + filter_move)); 
+							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
+				  }
+		  }
+  }
+
+
+
+  for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
+		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
+				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
+							Routput[row_loop - center_point][col_loop - center_point] += output[row_loop][col_loop - filter_move] * 
+								  (*(row_filter + center_point + filter_move));
+							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
+				  }
+		  }
+  }
 
   // Convolution code here
-  
-  return output;
+  return Routput;
 }
 
 // Convolve an image with a  convolution kernel
@@ -219,14 +283,14 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
 	int center_point = ((int)filter.rows() / 2);
 	int filterW, filterH;
 	filterW = filterH = filter.rows();
-	SDoublePlane output(input.rows(), input.cols());        
+	SDoublePlane output = SDoublePlane(input.rows(), input.cols());        
 	SDoublePlane complete_image = extend_image_boundaries(input,center_point);
 
 	//Convolution Gaussian Procedure
         for(int i = center_point ; i < complete_image.rows() - center_point; i++){
                 for(int j = center_point; j < complete_image.cols() - center_point; j++){
-                        for(int k = 0; k < filter.rows(); k++){
-                                for(int l = 0; l < filter.cols(); l++){
+                        for(int k = 0; k < filterH; k++){
+                                for(int l = 0; l < filterW; l++){
                                         output[i - center_point][j - center_point] = output[i - center_point][j - center_point] + (complete_image[k + i - center_point]
 														[l + j - center_point] * filter[filterH - k - 1][filterW - l - 1]);
                                 }
@@ -243,8 +307,28 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
 // 
 SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
 {
-  SDoublePlane output(input.rows(), input.cols());
+  //SDoublePlane output(input.rows(), input.cols());
+  double sobel_plane [] = {1,2,1};
+  double sobel_spread [] = {-1,0,1};
 
+  double *row_operation, *column_operation;
+  if (_gx){
+	//printf("dx\n");
+	row_operation = sobel_spread;
+	column_operation = sobel_plane;
+  }
+  else{
+	//printf("dy\n");
+	row_operation = sobel_plane;
+	column_operation = sobel_spread;
+  }
+
+  SDoublePlane output = convolve_separable(input, row_operation, column_operation, 3);
+
+  if (_gx)
+		write_normalized_image("sobel_dx.png",output);
+  else
+		write_normalized_image("sobel_dy.png",output);
   // Implement a sobel gradient estimation filter with 1-d filters
   
 
@@ -265,7 +349,7 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 
 
 //
-// This main file just outputs a few test images. You'll want to change it to do 
+// This min file just outputs a few test images. You'll want to change it to do 
 //  something more interesting!
 //
 int main(int argc, char *argv[])
@@ -281,6 +365,17 @@ int main(int argc, char *argv[])
 	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
 	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
 	SImageIO::write_png_file("output.png",smoothed_image,smoothed_image,smoothed_image);
+	
+	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
+	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
+	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
+	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
+		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
+			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
+		}
+	}
+
+	write_normalized_image("sobel_magnitude.png",magnitude);
 
 /*
   // test step 2 by applying mean filters to the input image
