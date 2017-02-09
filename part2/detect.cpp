@@ -395,6 +395,71 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 }
 
 
+void hog_implementation(){
+	SDoublePlane input_image = SImageIO::read_png_file("hog.png");	
+	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
+	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
+	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
+	SDoublePlane angle = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
+	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
+		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
+			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
+			angle[row_loop][col_loop] = (atan2(sobel_dy[row_loop][col_loop],sobel_dx[row_loop][col_loop]) * 180.00) / PI;
+			if (angle[row_loop][col_loop] < 0)
+				angle[row_loop][col_loop] = -angle[row_loop][col_loop];
+			if (angle[row_loop][col_loop] == 180.00)
+				angle[row_loop][col_loop] = 0.0;
+		}
+	}
+	write_normalized_image("hog_magnitude.png",magnitude);
+	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
+	printf("Hog Magnitude Computed\n");
+	int cell_size = 8;
+	int bin_size = 9;
+	int bin_seperation = 20;
+	int size_histogram = (hog_image.rows()/cell_size) * (hog_image.cols()/cell_size);
+	double ** histogram = new double*[size_histogram];
+	for (int assign = 0;assign < size_histogram; ++assign){
+		histogram[assign] = new double[bin_size];
+		for (int init_zero = 0; init_zero < bin_size; ++init_zero)
+			histogram[assign][init_zero] = 0.0;
+	}
+	printf("Hog Initialized\n");
+
+	//HOG Histogram
+	int index_x = 0, index_y = 0, lower_boundary = 0, upper_boundary = 0;
+	for (int row = 0; row < hog_image.rows()/cell_size; ++row){
+		for (int col = 0; col < hog_image.cols()/cell_size; ++col){
+			for (int cell_r = 0; cell_r < cell_size; ++cell_r){
+				for (int cell_c = 0; cell_c < cell_size; ++cell_c){
+					index_x = (cell_size * row) + cell_r;
+					index_y = (cell_size * col) + cell_c;
+					lower_boundary = ((int)(((int)angle[index_x][index_y])/10));
+					upper_boundary = ((int)(((int)angle[index_x][index_y])/10));
+					
+					if (lower_boundary % 2 == 0)
+						lower_boundary = (lower_boundary - 1) * 10;
+					else
+						lower_boundary = lower_boundary * 10;
+					
+					if (upper_boundary % 2 == 0)
+						upper_boundary = (upper_boundary + 2) * 10;
+					else
+						upper_boundary = (upper_boundary + 1) * 10;
+
+					//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((angle[index_x][index_y] - lower_boundary)/(float)bin_seperation);
+					histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
+					//histogram[(row * cell_size) + col][(lower_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((upper_boundary - angle[index_x][index_y])/(float)bin_seperation);
+					printf("index_x%dindex_y%dHR%dHC%d\n",index_x,index_y,(row * (hog_image.rows()/cell_size)) + col,(upper_boundary - 10) / bin_seperation);
+				}
+			}
+		}
+	}
+
+	printf("Hog Out\n");
+}
+
+
 //
 // This min file just outputs a few test images. You'll want to change it to do 
 //  something more interesting!
@@ -450,6 +515,7 @@ int main(int argc, char *argv[])
 	
 	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
 	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
+	//hog_implementation();
 
 /*
   // test step 2 by applying mean filters to the input image
