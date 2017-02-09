@@ -154,7 +154,7 @@ SDoublePlane create_gaussian_kernel_2D(const int windowSize,const int sigma){
 			
 }
 
-SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_extend){
+SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_extend, string file_name){
 
 	SDoublePlane extended_image(input.rows() + (2 * length_to_extend), input.cols() + (2 * length_to_extend));
 	
@@ -189,7 +189,7 @@ SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_ext
 		}
 	}
 
-	SImageIO::write_png_file("extended_image.png",extended_image,extended_image,extended_image);
+	SImageIO::write_png_file(file_name.c_str(),extended_image,extended_image,extended_image);
 
 return extended_image;
 }
@@ -235,7 +235,7 @@ void write_normalized_image(string file_name,SDoublePlane magnitude){
 SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_filter, const double *column_filter, int filter_size)
 {
 	int center_point = ((int)(filter_size/2.00));
-	SDoublePlane complete_image = extend_image_boundaries(input,center_point);
+	SDoublePlane complete_image = extend_image_boundaries(input,center_point,"extended_convolve_image.png");
 	SDoublePlane output = SDoublePlane(complete_image.rows(), complete_image.cols());
 	SDoublePlane Routput = SDoublePlane(input.rows(), input.cols());
 
@@ -278,13 +278,13 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 
 // Convolve an image with a  convolution kernel
 //
-SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &filter)
+SDoublePlane convolve_general(SDoublePlane input, const SDoublePlane &filter)
 {
 	int center_point = ((int)filter.rows() / 2);
 	int filterW, filterH;
 	filterW = filterH = filter.rows();
 	SDoublePlane output = SDoublePlane(input.rows(), input.cols());        
-	SDoublePlane complete_image = extend_image_boundaries(input,center_point);
+	SDoublePlane complete_image = extend_image_boundaries(input,center_point,"extended_convolve_image.png");
 
 	//Convolution Gaussian Procedure
         for(int i = center_point ; i < complete_image.rows() - center_point; i++){
@@ -301,6 +301,53 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
   
   return output;
 }
+
+
+//Apply a threshold to binary Image
+SDoublePlane binary_image(const char* image_name,const double threshold){
+	SDoublePlane edge_image = SImageIO::read_png_file(image_name);
+	for(int row_loop = 0;row_loop < edge_image.rows(); ++row_loop){
+			for(int col_loop = 0;col_loop < edge_image.cols(); ++col_loop){
+					if (edge_image[row_loop][col_loop] < threshold)
+							edge_image[row_loop][col_loop] = 0.0;
+					else
+							edge_image[row_loop][col_loop] = 255.00;
+		}
+	}
+	return edge_image;
+}
+
+SDoublePlane dilation(SDoublePlane edge_image,int filter_size){
+
+	SDoublePlane morph_filter = SDoublePlane(filter_size,filter_size);
+	for (int row = 0; row < morph_filter.rows(); ++row){
+			for (int col = 0; col < morph_filter.cols(); ++col){
+					morph_filter[row][col] = 1.00;
+			}
+	}
+	
+	int center_point = (int)(morph_filter.rows() / 2);
+
+	SDoublePlane morph_dilation = SDoublePlane(edge_image.rows(),edge_image.cols());
+	for (int row = center_point; row < edge_image.rows() - center_point; ++row){
+			for (int col = center_point; col < edge_image.cols() - center_point; ++col){
+					morph_dilation[row][col] = 0.0;
+					for(int k = 0; k < morph_filter.rows(); k++){
+                                for(int l = 0; l < morph_filter.cols(); l++){
+                                        if (morph_filter[k][l] == 1.00 && edge_image[k + row - center_point][l + col - center_point] == 255.0){
+												morph_dilation[row][col] = 255.0;
+												break;
+										}
+                                }
+								if (morph_dilation[row][col] == 255.00)
+										break;
+                    }
+			}
+	}
+
+	return morph_dilation;
+}
+
 
 
 // Apply a sobel operator to an image, returns the result
@@ -361,7 +408,7 @@ int main(int argc, char *argv[])
     	}
 
   	string input_filename(argv[1]);
-  	SDoublePlane input_image= SImageIO::read_png_file(input_filename.c_str());	
+  	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());	
 	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
 	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
 	SImageIO::write_png_file("output.png",smoothed_image,smoothed_image,smoothed_image);
@@ -374,8 +421,35 @@ int main(int argc, char *argv[])
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
 		}
 	}
-
 	write_normalized_image("sobel_magnitude.png",magnitude);
+	SDoublePlane edge_image = binary_image("sobel_magnitude.png",40.00);
+	SImageIO::write_png_file("binary_image.png",edge_image,edge_image,edge_image);
+	SDoublePlane morph_dilation = dilation(edge_image,11);
+	SDoublePlane pass_image = SDoublePlane(edge_image.rows(),edge_image.cols());
+	for (int row = 0;row < edge_image.rows(); ++row){
+			for (int col = 0;col < edge_image.cols(); ++col){
+					if (morph_dilation[row][col] == 255.00)
+							pass_image[row][col] = input_image[row][col];
+			}
+	}
+	//morph_dilation = dilation(morph_dilation,9);
+	/*DoublePlane morph_erosion = SDoublePlane(edge_image.rows(),edge_image.cols());
+	for (int row = 1; row < edge_image.rows() - 1; ++row){
+			for (int col = 1; col < edge_image.cols() - 1; ++col){
+					morph_erosion[row][col] = 255.0;
+					for(int k = 0; k < morph_erode_filter.rows(); k++){
+                                for(int l = 0; l < morph_erode_filter.cols(); l++){
+                                        if (morph_erode_filter[k][l] == 1.00 && edge_image[k + row - 1][l + col - 1] == 0.0)
+												morph_erosion[row][col] = 0.0;
+                                }
+                    }
+			}
+	}*/
+
+//	SImageIO::write_png_file("morph_erosion.png",morph_erosion,morph_erosion,morph_erosion);
+	
+	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
+	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
 
 /*
   // test step 2 by applying mean filters to the input image
