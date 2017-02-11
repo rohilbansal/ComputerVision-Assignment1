@@ -17,6 +17,7 @@
 #include <vector>
 #include <math.h>
 #include <limits.h>
+#include <constants.h>
 
 #define PI 3.14159265
 
@@ -72,8 +73,16 @@ class DetectedBox {
 public:
   int row, col, width, height;
   double confidence;
+  DetectedBox (int, int, int, int, double);
 };
 
+DetectedBox::DetectedBox(int r, int c, int w, int h, double conf) {
+  row = r;
+  col = c;
+  width = w;
+  height = h;
+  confidence = conf;
+}
 
 //COMMENTS - write files code
 // Function that outputs the ascii detection output file
@@ -459,7 +468,73 @@ void hog_implementation(){
 	printf("Hog Out\n");
 }
 
+double window_mean(SDoublePlane image, int row, int col, int width, int height){
+  double mean;
+  for(int i = row; i < row + height; i++)
+    for(int j = col; j < col + width; j++)
+      mean += image[i][j];
 
+  mean = mean / (width * height);
+  return mean;
+}
+
+double window_variance(SDoublePlane image, int row, int col, int width, int height, double mean){
+  double variance;
+  for(int i = row; i < row + height; i++)
+    for(int j = col; j < col + width; j++)
+      variance += (image[i][j] - mean) * (image[i][j] - mean);
+
+  variance = variance / (width * height);
+
+  return variance;
+}
+
+double window_template_variance(SDoublePlane windowImage, SDoublePlane templateImage, int row, int col, int width, int height, double templateMean, double windowMean){
+  double S_fg;
+  for(int i_template = 0, i_window = row; i_template < height &&  i_window < row + height ; i_template++, i_window++){
+    for(int j_template = 0, j_window = col; j_template < width && j_window < col + width; j_template++, j_window++){
+      //cout << "template " << i_template << " " << j_template << " window " << i_window << " " << j_window << endl;
+      // NOTE -  not sure if I should use abs
+      S_fg += (templateImage[i_template][j_template] - templateMean) * (windowImage[i_window][j_window] - windowMean);
+    }
+  }
+  S_fg = S_fg / (width * height);
+  return S_fg;
+}
+
+std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_template, double car_template_mean, double car_template_variance){
+  int height = pass_image.rows(), width = pass_image.cols();
+  int templateHeight = car_template.rows(), templateWidth = car_template.cols();
+  std::vector<DetectedBox> detectedBoxes;
+  for(int row_index = 0; row_index + templateHeight + JUMP_X < height; row_index += JUMP_X){
+    for(int col_index = 0; col_index + templateWidth + JUMP_Y < width; col_index += JUMP_Y){
+      // sliding window --
+      // find window's mean, variance
+      double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
+      if(mean < MEAN_THRESHOLD)
+        continue;
+
+      double window_var = window_variance(pass_image, row_index, col_index, templateWidth, templateHeight, mean);
+
+      double S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
+      double corr_coefficient = S_fg / (sqrt(window_var) * sqrt(car_template_variance));
+      //cout << "window_var " << window_var << " car_template_variance " << car_template_variance << " S_fg " << S_fg << endl << " corr " << corr_coefficient << endl;
+      if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
+
+        // add a new instance of detectedBox in vector
+        cout << row_index << ", " << col_index << " corr " << corr_coefficient << " mean " << mean << endl;
+        detectedBoxes.push_back(DetectedBox(row_index, col_index, templateWidth, templateHeight, corr_coefficient));
+        //return detectedBoxes;
+      }
+
+        //cout << corr_coefficient << endl;
+
+      // check the
+
+    }
+  }
+  return detectedBoxes;
+}
 //
 // This min file just outputs a few test images. You'll want to change it to do
 //  something more interesting!
@@ -517,7 +592,29 @@ int main(int argc, char *argv[])
 	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
 
 
-  SDoublePlane car_template = SImageIO::read_png_file("template-car.png");
+  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
+
+  int width = car_template.rows(), height = car_template.cols();
+  double car_template_mean;
+  for(int i = 0; i < width; i++)
+    for(int j = 0; j < height; j++)
+        car_template_mean += car_template[i][j];
+
+  car_template_mean = car_template_mean / (width * height);
+
+  double car_template_variance;
+
+  for(int i = 0; i < width; i++)
+    for(int j = 0; j < height; j++)
+      car_template_variance += (car_template[i][j] - car_template_mean) * (car_template[i][j] - car_template_mean);
+
+  car_template_variance = car_template_variance / (width * height);
+
+  std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, car_template, car_template_mean, car_template_variance);
+
+  write_detection_image("final_overlay_output.png", detectedBoxes, input_image);
+/*
+  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
 
   // calculate car template's mean
   int car_template_x = car_template.rows();
@@ -526,6 +623,7 @@ int main(int argc, char *argv[])
   double mean_car_template;
   for(int i = 0; i < car_template_x; i++){
     for(int j = 0; j < car_template_y; j++){
+        //cout <<  i << " " << j << " " << car_template[i][j] << endl;
         mean_car_template += car_template[i][j];
     }
   }
@@ -535,18 +633,25 @@ int main(int argc, char *argv[])
 
   // calculate sample window's mean
 
-  int window_x_size[2] = {32, 74};
-  int window_y_size[2] = {89, 108};
+  //int window_x_size[2] = {33, 75};
+  //int window_y_size[2] = {88, 107};
+
+  //int window_x_size[2] = {0, 42};
+  //int window_y_size[2] = {0, 19};
+
+  int window_y_size[2] = {111, 130};
+  int window_x_size[2] = {28, 71};
 
   double mean_window;
-
+  //int count;
   for(int i = window_x_size[0]; i < window_x_size[1]; i++){
     for(int j = window_y_size[0]; j < window_y_size[1]; j++){
       mean_window += input_image[i][j];
     }
   }
-
-  cout << "sum " << mean_window << endl;
+  //cout << count << endl;
+  cout << window_y_size[1] - window_y_size[0] << "  " << window_x_size[1] - window_x_size[0] << endl;
+  //cout << "sum " << mean_window << endl;
   mean_window = mean_window / ((window_y_size[1] - window_y_size[0]) * (window_x_size[1] - window_x_size[0]));
   cout << mean_window << endl;
 
@@ -559,10 +664,10 @@ int main(int argc, char *argv[])
     }
   }
 
-  cout << "sum S_ff " << S_ff << endl;
+  //cout << "sum S_ff " << S_ff << endl;
   S_ff = S_ff / (car_template_x * car_template_y);
 
-  cout << "S_ff " << S_ff << endl;
+  //cout << "S_ff " << S_ff << endl;
   // variance of window
   double S_gg;
 
@@ -571,33 +676,37 @@ int main(int argc, char *argv[])
       S_gg += (input_image[i][j] - mean_window) * (input_image[i][j] - mean_window);
     }
   }
-  cout << "sum S_gg " << S_gg << endl;
+  //cout << "sum S_gg " << S_gg << endl;
   S_gg = S_gg / (car_template_x * car_template_y);
-  cout << "S_gg " << S_gg << endl;
+  //cout << "S_gg " << S_gg << endl;
 
   double S_fg;
   for(int i_template = 0, i_window = window_x_size[0]; i_template < car_template_x && i_window < window_x_size[1]; i_template++, i_window++){
     for(int j_template = 0, j_window = window_y_size[0]; j_template < car_template_y && j_window < window_y_size[1]; j_template++, j_window++){
       //cout << "template " << i_template << " " << j_template << " window " << i_window << " " << j_window << endl;
       // NOTE -  not sure if I should use abs
-      S_fg += abs(car_template[i_template][j_template] - mean_car_template) * abs(input_image[i_window][j_window] - mean_window);
+      S_fg += (car_template[i_template][j_template] - mean_car_template) * (input_image[i_window][j_window] - mean_window);
     }
   }
 
-  cout << "sum S_fg " << S_fg << endl;
+  //cout << "sum S_fg " << S_fg << endl;
 
   S_fg = S_fg / (car_template_x * car_template_y);
 
-  cout << "S_fg " << S_fg << endl;
+  //cout << "S_fg " << S_fg << endl;
 
   // correlation
 
   double corr;
   corr = S_fg / (sqrt(S_ff) * sqrt(S_gg));
-  cout << corr << endl;
+  cout << " sff " << S_ff << " sgg " << S_gg << " sfg " << S_fg << " corr " << corr << endl;
 
   // run a sliding window on the pass image of the same dimension as template image
-  
+
+*/
+
+
+
 	//hog_implementation();
 
 /*

@@ -1,0 +1,4 @@
+#define JUMP_X 2
+#define JUMP_Y 2
+#define CORR_COEFFICIENT_THRESHOLD 0.5
+#define MEAN_THRESHOLD 90
