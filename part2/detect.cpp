@@ -18,6 +18,11 @@
 #include <math.h>
 #include <limits.h>
 
+
+#define HOG_CELL_SIZE 8
+#define HOG_BIN_SIZE 9
+#define HOG_BIN_SEPERATION 20
+#define HOG_BLOCK_SIZE 2
 #define PI 3.14159265
 
 
@@ -26,10 +31,10 @@ using namespace std;
 // The simple image class is called SDoublePlane, with each pixel represented as
 // a double (floating point) type. This means that an SDoublePlane can represent
 // values outside the range 0-255, and thus can represent squared gradient magnitudes,
-// harris corner scores, etc.
+// harris corner scores, etc. 
 //
 // The SImageIO class supports reading and writing PNG files. It will read in
-// a color PNG file, convert it to grayscale, and then return it to you in
+// a color PNG file, convert it to grayscale, and then return it to you in 
 // an SDoublePlane. The values in this SDoublePlane will be in the range [0,255].
 //
 // To write out an image, call write_png_file(). It takes three separate planes,
@@ -39,7 +44,7 @@ using namespace std;
 //
 
 // Below is a helper functions that overlays rectangles
-// on an image plane for visualization purpose.
+// on an image plane for visualization purpose. 
 
 // Draws a rectangle on an image plane, using the specified gray level value and line width.
 //
@@ -49,12 +54,12 @@ void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom, in
   for(int w=-width/2; w<=width/2; w++) {
     int top = _top+w, left = _left+w, right=_right+w, bottom=_bottom+w;
 
-    // if any of the coordinates are out-of-bounds, truncate them
+    // if any of the coordinates are out-of-bounds, truncate them 
     top = min( max( top, 0 ), input.rows()-1);
     bottom = min( max( bottom, 0 ), input.rows()-1);
     left = min( max( left, 0 ), input.cols()-1);
     right = min( max( right, 0 ), input.cols()-1);
-
+      
     // draw top and bottom lines
     for(int j=left; j<=right; j++)
 	  input[top][j] = input[bottom][j] = graylevel;
@@ -102,7 +107,7 @@ void  write_detection_image(const string &filename, const vector<DetectedBox> &c
 //End of write files
 
 
-// The rest of these functions are incomplete. These are just suggestions to
+// The rest of these functions are incomplete. These are just suggestions to 
 // get you started -- feel free to add extra functions, change function
 // parameters, etc.
 /*
@@ -128,10 +133,10 @@ SDoublePlane create_gaussian_kernel_1D(const int windowSize,const int sigma){
 		gaussianKernel[0][rowloop] = gaussianValue_x(rowloop - middleSpot,sigma);
 		printf("%f  ",gaussianKernel[0][rowloop]);
 		printf("\n");
-	}
+	}	
 	printf("---***---gaussian kernel---***---\n");
 	printf("-----1D gaussian kernel with sigma %d and window size %d-----\n",sigma,windowSize);
-	return gaussianKernel;
+	return gaussianKernel;		
 }
 
 
@@ -147,29 +152,29 @@ SDoublePlane create_gaussian_kernel_2D(const int windowSize,const int sigma){
 			printf("%f  ",gaussianKernel[rowloop][columnloop]);
 		}
 		printf("\n");
-	}
+	}	
 	printf("---***---gaussian kernel---***---\n");
 	printf("-----2D gaussian kernel with sigma %d and window size %d-----\n",sigma,windowSize);
 	return gaussianKernel;
-
+			
 }
 
 SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_extend, string file_name){
 
 	SDoublePlane extended_image(input.rows() + (2 * length_to_extend), input.cols() + (2 * length_to_extend));
-
+	
 	//Fills the Tic Toe Positions of the 2D array with boundary values
 	for (int outer_loop = length_to_extend; outer_loop > 0; --outer_loop){
 		for(int inner_loop = length_to_extend; inner_loop < extended_image.cols() - length_to_extend; ++inner_loop){
 			extended_image[outer_loop-1][inner_loop] = input[0][inner_loop - length_to_extend];
 			extended_image[extended_image.rows() - outer_loop][inner_loop] = input[input.rows() - 1][inner_loop - length_to_extend];
 		}
-		for(int inner_loop = length_to_extend; inner_loop < extended_image.rows() - length_to_extend; ++inner_loop){
+		for(int inner_loop = length_to_extend; inner_loop < extended_image.rows() - length_to_extend; ++inner_loop){ 
 			extended_image[inner_loop][extended_image.cols() - outer_loop] = input[inner_loop - length_to_extend][input.cols() - 1];
 			extended_image[inner_loop][outer_loop-1] = input[inner_loop - length_to_extend][0];
 		}
 	}
-
+	
 
 	//Fill The extended image with the original image
 	for (int outer_loop = 0; outer_loop < input.rows(); ++outer_loop){
@@ -185,7 +190,7 @@ SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_ext
 			extended_image[outer_loop][inner_loop] = extended_image[length_to_extend][length_to_extend];
 			extended_image[outer_loop][extended_image.cols() - inner_loop - 1] = extended_image[length_to_extend][extended_image.cols() - length_to_extend];
 			extended_image[extended_image.rows() - outer_loop - 1][inner_loop] = extended_image[extended_image.rows() - length_to_extend][length_to_extend];
-			extended_image[extended_image.rows() - outer_loop - 1][extended_image.cols() - inner_loop - 1] = extended_image[extended_image.rows() - length_to_extend][extended_image.cols() - length_to_extend];
+			extended_image[extended_image.rows() - outer_loop - 1][extended_image.cols() - inner_loop - 1] = extended_image[extended_image.rows() - length_to_extend][extended_image.cols() - length_to_extend];	
 		}
 	}
 
@@ -222,7 +227,7 @@ void write_normalized_image(string file_name,SDoublePlane magnitude){
 	//updating the normalied values in spectrogram for displaying in png image
 	for (int rowLoop = 0;rowLoop < magnitude.rows(); ++rowLoop){
 	    for(int columnLoop = 0;columnLoop < magnitude.cols(); ++columnLoop){
-	        if (magnitude[rowLoop][columnLoop] != LONG_MIN)
+	        if (magnitude[rowLoop][columnLoop] != LONG_MIN) 
 	             magnitude[rowLoop][columnLoop] = ((magnitude[rowLoop][columnLoop] - minV) * (255.00/(maxV - minV)));
 	    }
 	}
@@ -239,12 +244,14 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 	SDoublePlane output = SDoublePlane(complete_image.rows(), complete_image.cols());
 	SDoublePlane Routput = SDoublePlane(input.rows(), input.cols());
 
-  for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
+
+	//Fill the image content in the extended image
+	for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
 		  for(int col_loop = 0; col_loop < complete_image.cols(); ++col_loop){
 				if (row_loop < center_point || row_loop >= input.rows() + center_point || col_loop < center_point || col_loop >= input.cols() + center_point)
 						output[row_loop][col_loop] = complete_image[row_loop][col_loop];
 		  }
-  }
+	}
 
 
 
@@ -253,8 +260,8 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
   for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
 		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
 				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
-							output[row_loop][col_loop] += complete_image[row_loop - filter_move][col_loop] *
-								  (*(column_filter + center_point + filter_move));
+							output[row_loop][col_loop] += complete_image[row_loop - filter_move][col_loop] * 
+								  (*(column_filter + center_point + filter_move)); 
 							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
 				  }
 		  }
@@ -265,7 +272,7 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
   for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
 		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
 				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
-							Routput[row_loop - center_point][col_loop - center_point] += output[row_loop][col_loop - filter_move] *
+							Routput[row_loop - center_point][col_loop - center_point] += output[row_loop][col_loop - filter_move] * 
 								  (*(row_filter + center_point + filter_move));
 							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
 				  }
@@ -283,7 +290,7 @@ SDoublePlane convolve_general(SDoublePlane input, const SDoublePlane &filter)
 	int center_point = ((int)filter.rows() / 2);
 	int filterW, filterH;
 	filterW = filterH = filter.rows();
-	SDoublePlane output = SDoublePlane(input.rows(), input.cols());
+	SDoublePlane output = SDoublePlane(input.rows(), input.cols());        
 	SDoublePlane complete_image = extend_image_boundaries(input,center_point,"extended_convolve_image.png");
 
 	//Convolution Gaussian Procedure
@@ -298,7 +305,7 @@ SDoublePlane convolve_general(SDoublePlane input, const SDoublePlane &filter)
                 }
         }
 
-
+  
   return output;
 }
 
@@ -325,7 +332,7 @@ SDoublePlane dilation(SDoublePlane edge_image,int filter_size){
 					morph_filter[row][col] = 1.00;
 			}
 	}
-
+	
 	int center_point = (int)(morph_filter.rows() / 2);
 
 	SDoublePlane morph_dilation = SDoublePlane(edge_image.rows(),edge_image.cols());
@@ -351,7 +358,7 @@ SDoublePlane dilation(SDoublePlane edge_image,int filter_size){
 
 
 // Apply a sobel operator to an image, returns the result
-//
+// 
 SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
 {
   //SDoublePlane output(input.rows(), input.cols());
@@ -377,26 +384,26 @@ SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
   else
 		write_normalized_image("sobel_dy.png",output);
   // Implement a sobel gradient estimation filter with 1-d filters
-
+  
 
   return output;
 }
 
 // Apply an edge detector to an image, returns the binary edge map
-//
+// 
 SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 {
   SDoublePlane output(input.rows(), input.cols());
 
   // Implement an edge detector of your choice, e.g.
   // use your sobel gradient operator to compute the gradient magnitude and threshold
-
+  
   return output;
 }
 
 
 void hog_implementation(){
-	SDoublePlane input_image = SImageIO::read_png_file("hog.png");
+	SDoublePlane input_image = SImageIO::read_png_file("hog.png");	
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
 	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
@@ -404,19 +411,28 @@ void hog_implementation(){
 	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
-			angle[row_loop][col_loop] = (atan2(sobel_dy[row_loop][col_loop],sobel_dx[row_loop][col_loop]) * 180.00) / PI;
-			if (angle[row_loop][col_loop] < 0)
-				angle[row_loop][col_loop] = -angle[row_loop][col_loop];
-			if (angle[row_loop][col_loop] == 180.00)
-				angle[row_loop][col_loop] = 0.0;
+			angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
+			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
+			angle[row_loop][col_loop] += 90.00;
 		}
 	}
+
+
+	//angle max min
+	double minA,maxA;
+	min_max(angle,minA,maxA);
+	printf ("Angle %f %f",minA,maxA);
+
 	write_normalized_image("hog_magnitude.png",magnitude);
 	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
 	printf("Hog Magnitude Computed\n");
-	int cell_size = 8;
-	int bin_size = 9;
-	int bin_seperation = 20;
+	
+	//HOG Constants
+	int cell_size = HOG_CELL_SIZE;
+	int bin_size = HOG_BIN_SIZE;
+	int bin_seperation = HOG_BIN_SEPERATION;
+	
+	//HOG Histogram Initialization
 	int size_histogram = (hog_image.rows()/cell_size) * (hog_image.cols()/cell_size);
 	double ** histogram = new double*[size_histogram];
 	for (int assign = 0;assign < size_histogram; ++assign){
@@ -427,41 +443,56 @@ void hog_implementation(){
 	printf("Hog Initialized\n");
 
 	//HOG Histogram
-	int index_x = 0, index_y = 0, lower_boundary = 0, upper_boundary = 0;
+	int index_x = 0, index_y = 0, angle_xy = 0, lower_bound = 0, upper_bound = 0;
 	for (int row = 0; row < hog_image.rows()/cell_size; ++row){
 		for (int col = 0; col < hog_image.cols()/cell_size; ++col){
 			for (int cell_r = 0; cell_r < cell_size; ++cell_r){
 				for (int cell_c = 0; cell_c < cell_size; ++cell_c){
 					index_x = (cell_size * row) + cell_r;
 					index_y = (cell_size * col) + cell_c;
-					lower_boundary = ((int)(((int)angle[index_x][index_y])/10));
-					upper_boundary = ((int)(((int)angle[index_x][index_y])/10));
-
-					if (lower_boundary % 2 == 0)
-						lower_boundary = (lower_boundary - 1) * 10;
-					else
-						lower_boundary = lower_boundary * 10;
-
-					if (upper_boundary % 2 == 0)
-						upper_boundary = (upper_boundary + 2) * 10;
-					else
-						upper_boundary = (upper_boundary + 1) * 10;
-
-					//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((angle[index_x][index_y] - lower_boundary)/(float)bin_seperation);
-					histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
-					//histogram[(row * cell_size) + col][(lower_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((upper_boundary - angle[index_x][index_y])/(float)bin_seperation);
-					printf("index_x%dindex_y%dHR%dHC%d\n",index_x,index_y,(row * (hog_image.rows()/cell_size)) + col,(upper_boundary - 10) / bin_seperation);
+					angle_xy = ((int)angle[index_x][index_y]);
+					
+					//finding bin number
+					for (int move = -10; move <= 190; move += HOG_BIN_SEPERATION){
+							if (angle_xy <= move){
+									upper_bound = move;
+									break;
+							}
+							if ((angle_xy - move) <= HOG_BIN_SEPERATION)
+									lower_bound = move;		
+					}
+					if (upper_bound == 190)
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y]; 
+					else if (lower_bound == -10)
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][0] += magnitude[index_x][index_y];
+					else{
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
+							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
+					}
+					//if (lower_bound >= 90.00)
+						//printf("index_x%dindex_y%dLB%dUB%d\n",index_x,index_y,lower_bound,upper_bound);
 				}
 			}
 		}
 	}
+
+
+	//HOG Blocks
+	int block_bin_size = HOG_BIN_SIZE * 4;
+	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
+
+
+
 
 	printf("Hog Out\n");
 }
 
 
 //
-// This min file just outputs a few test images. You'll want to change it to do
+// This min file just outputs a few test images. You'll want to change it to do 
 //  something more interesting!
 //
 int main(int argc, char *argv[])
@@ -473,11 +504,11 @@ int main(int argc, char *argv[])
     	}
 
   	string input_filename(argv[1]);
-  	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+  	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());	
 	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
 	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
 	SImageIO::write_png_file("output.png",smoothed_image,smoothed_image,smoothed_image);
-
+	
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
 	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
@@ -512,12 +543,17 @@ int main(int argc, char *argv[])
 	}*/
 
 //	SImageIO::write_png_file("morph_erosion.png",morph_erosion,morph_erosion,morph_erosion);
-
+	
 	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
 	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
+	hog_implementation();
 
 
-  SDoublePlane car_template = SImageIO::read_png_file("template-car.png");
+
+
+/*
+
+ SDoublePlane car_template = SImageIO::read_png_file("template-car.png");
 
   // calculate car template's mean
   int car_template_x = car_template.rows();
@@ -597,8 +633,17 @@ int main(int argc, char *argv[])
   cout << corr << endl;
 
   // run a sliding window on the pass image of the same dimension as template image
-  
-	//hog_implementation();
+
+
+*/
+
+
+
+
+
+
+
+
 
 /*
   // test step 2 by applying mean filters to the input image
@@ -608,7 +653,7 @@ int main(int argc, char *argv[])
       mean_filter[i][j] = 1/9.0;
   SDoublePlane output_image = convolve_general(input_image, mean_filter);
 
-
+  
   // randomly generate some detected cars -- you'll want to replace this
   //  with your car detection code obviously!
   vector<DetectedBox> cars;
