@@ -403,7 +403,7 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 
 
 void hog_implementation(){
-	SDoublePlane input_image = SImageIO::read_png_file("hog.png");	
+	SDoublePlane input_image = SImageIO::read_png_file("Car.png");	
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
 	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
@@ -467,14 +467,14 @@ void hog_implementation(){
 									lower_bound = move;		
 					}
 					if (upper_bound == 190)
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y]; 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y]; 
 					else if (lower_bound == -10)
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][0] += magnitude[index_x][index_y];
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][0] += magnitude[index_x][index_y];
 					else{
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
 																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
 							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
 																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
 					}
 					//if (lower_bound >= 90.00)
@@ -484,25 +484,35 @@ void hog_implementation(){
 		}
 	}
 
+	
+	
 	//HOG Blocks
 	int block_bin_size = HOG_BIN_SIZE * 4;
-	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
+	int size_block = (hog_image.rows()/cell_size - 1) * (hog_image.cols()/cell_size - 1);
 
-	double **blocks = new double*[size_histogram];
-	for (int assign = 0;assign < size_histogram; ++assign){
+
+	double **blocks = new double*[size_block];
+	for (int assign = 0;assign < size_block; ++assign){
 		blocks[assign] = new double[block_bin_size];
 		for (int init_zero = 0; init_zero < block_bin_size; ++init_zero)
 			blocks[assign][init_zero] = 0.0;
 	}
 
+	double **blocks_normalized = new double*[size_block];
+	for (int assign = 0;assign < size_block; ++assign){
+		blocks_normalized[assign] = new double[block_bin_size];
+		for (int init_zero = 0; init_zero < block_bin_size; ++init_zero)
+			blocks_normalized[assign][init_zero] = 0.0;
+	}
 
 	//Finding the blocks
-	int blocks_per_row = (hog_image.rows()/cell_size);
-	for (int row = 0; row < blocks_per_row - 1; ++row){
+	int blocks_per_row = (hog_image.cols()/cell_size);
+	for (int row = 0; row < (hog_image.rows()/cell_size) - 1; ++row){
 		for (int col = 0; col < (hog_image.cols()/cell_size) - 1; ++col){
 			for (int block_r = 0; block_r < HOG_BLOCK_SIZE; ++block_r){
 				for (int block_c = 0; block_c < HOG_BLOCK_SIZE; ++block_c){
 					for (int cell = 0; cell < HOG_BIN_SIZE; ++cell){
+							//printf("%d , %d\n",(row * (blocks_per_row - 1)) + col,(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell);
 							blocks[(row * (blocks_per_row - 1)) + col][(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell] 
 									= histogram[(row * blocks_per_row) + col + (block_r * blocks_per_row) + block_c][cell];
 						
@@ -511,16 +521,17 @@ void hog_implementation(){
 			}
 		}
 	}
-
+	printf("HOG Block Size (C,R) : %d,%d\n",((hog_image.cols()/cell_size)-1) , ((hog_image.rows()/cell_size)-1));
 
 	//Normalizing the blocks
-	double sum_block = 0.0;
-	for (int block_head = 0; block_head < size_histogram; ++block_head){
-			sum_block = 0.0;
+	double magnitude_block = 0.0;
+	for (int block_head = 0; block_head < size_block; ++block_head){
+			magnitude_block = 0.0;
 			for (int block_val = 0; block_val < block_bin_size; ++block_val)
-				sum_block += blocks[block_head][block_val];
+				magnitude_block += (blocks[block_head][block_val] * blocks[block_head][block_val]);
+			magnitude_block = sqrt(magnitude_block);
 			for (int block_val = 0; block_val < block_bin_size; ++block_val)
-				blocks[block_head][block_val] /= sum_block;
+				blocks_normalized[block_head][block_val] = blocks[block_head][block_val] / magnitude_block;
 	}
 
 
@@ -538,9 +549,9 @@ void hog_implementation(){
 	//output to txt file
 	ofstream hog_vector_values;
 	hog_vector_values.open("hog_vectors.txt");
-	for (int block_head = 0; block_head < size_histogram; ++block_head){
+	for (int block_head = 0; block_head < size_block; ++block_head){
 			for (int block_val = 0; block_val < block_bin_size; ++block_val)
-				hog_vector_values << blocks[block_head][block_val] << ",";
+				hog_vector_values << blocks_normalized[block_head][block_val] << ",";
 			hog_vector_values << "\n";
 	}
 	hog_vector_values.close();
