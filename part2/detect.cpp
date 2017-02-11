@@ -411,7 +411,12 @@ void hog_implementation(){
 	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
-			angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
+			if (sobel_dx[row_loop][col_loop] != 0.0)
+				angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
+			else if (sobel_dy[row_loop][col_loop] != 0.0)
+				angle[row_loop][col_loop] = 0.0;				
+			else
+				angle[row_loop][col_loop] = -90.00;
 			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
 			angle[row_loop][col_loop] += 90.00;
 		}
@@ -479,11 +484,75 @@ void hog_implementation(){
 		}
 	}
 
-
 	//HOG Blocks
 	int block_bin_size = HOG_BIN_SIZE * 4;
 	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
 
+	double **blocks = new double*[size_histogram];
+	for (int assign = 0;assign < size_histogram; ++assign){
+		blocks[assign] = new double[block_bin_size];
+		for (int init_zero = 0; init_zero < block_bin_size; ++init_zero)
+			blocks[assign][init_zero] = 0.0;
+	}
+
+
+	//Finding the blocks
+	int blocks_per_row = (hog_image.rows()/cell_size);
+	for (int row = 0; row < blocks_per_row - 1; ++row){
+		for (int col = 0; col < (hog_image.cols()/cell_size) - 1; ++col){
+			for (int block_r = 0; block_r < HOG_BLOCK_SIZE; ++block_r){
+				for (int block_c = 0; block_c < HOG_BLOCK_SIZE; ++block_c){
+					for (int cell = 0; cell < HOG_BIN_SIZE; ++cell){
+							blocks[(row * (blocks_per_row - 1)) + col][(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell] 
+									= histogram[(row * blocks_per_row) + col + (block_r * blocks_per_row) + block_c][cell];
+						
+					}
+				}
+			}
+		}
+	}
+
+
+	//Normalizing the blocks
+	double sum_block = 0.0;
+	for (int block_head = 0; block_head < size_histogram; ++block_head){
+			sum_block = 0.0;
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				sum_block += blocks[block_head][block_val];
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				blocks[block_head][block_val] /= sum_block;
+	}
+
+
+	ofstream angle_value;
+	angle_value.open("angle.txt");
+	for (int row = 0; row < hog_image.rows(); ++row){
+			for (int col = 0; col < hog_image.cols(); ++col){
+					angle_value << angle[row][col] << ",";
+			}
+			angle_value << "\n";
+	}
+	angle_value.close();
+
+
+	//output to txt file
+	ofstream hog_vector_values;
+	hog_vector_values.open("hog_vectors.txt");
+	for (int block_head = 0; block_head < size_histogram; ++block_head){
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				hog_vector_values << blocks[block_head][block_val] << ",";
+			hog_vector_values << "\n";
+	}
+	hog_vector_values.close();
+
+	ofstream histogram_vector_values;
+	histogram_vector_values.open("histogram_vectors.txt");
+	for (int block_head = 0; block_head < size_histogram; ++block_head){
+			for (int block_val = 0; block_val < HOG_BIN_SIZE; ++block_val)
+				histogram_vector_values << histogram[block_head][block_val] << ",";
+			histogram_vector_values << "\n";
+	}
+	histogram_vector_values.close();
 
 
 
