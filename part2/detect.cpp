@@ -19,6 +19,11 @@
 #include <limits.h>
 #include <constants.h>
 
+
+#define HOG_CELL_SIZE 8
+#define HOG_BIN_SIZE 9
+#define HOG_BIN_SEPERATION 20
+#define HOG_BLOCK_SIZE 2
 #define PI 3.14159265
 
 
@@ -248,12 +253,14 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 	SDoublePlane output = SDoublePlane(complete_image.rows(), complete_image.cols());
 	SDoublePlane Routput = SDoublePlane(input.rows(), input.cols());
 
-  for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
+
+	//Fill the image content in the extended image
+	for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
 		  for(int col_loop = 0; col_loop < complete_image.cols(); ++col_loop){
 				if (row_loop < center_point || row_loop >= input.rows() + center_point || col_loop < center_point || col_loop >= input.cols() + center_point)
 						output[row_loop][col_loop] = complete_image[row_loop][col_loop];
 		  }
-  }
+	}
 
 
 
@@ -413,19 +420,28 @@ void hog_implementation(){
 	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
-			angle[row_loop][col_loop] = (atan2(sobel_dy[row_loop][col_loop],sobel_dx[row_loop][col_loop]) * 180.00) / PI;
-			if (angle[row_loop][col_loop] < 0)
-				angle[row_loop][col_loop] = -angle[row_loop][col_loop];
-			if (angle[row_loop][col_loop] == 180.00)
-				angle[row_loop][col_loop] = 0.0;
+			angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
+			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
+			angle[row_loop][col_loop] += 90.00;
 		}
 	}
+
+
+	//angle max min
+	double minA,maxA;
+	min_max(angle,minA,maxA);
+	printf ("Angle %f %f",minA,maxA);
+
 	write_normalized_image("hog_magnitude.png",magnitude);
 	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
 	printf("Hog Magnitude Computed\n");
-	int cell_size = 8;
-	int bin_size = 9;
-	int bin_seperation = 20;
+
+	//HOG Constants
+	int cell_size = HOG_CELL_SIZE;
+	int bin_size = HOG_BIN_SIZE;
+	int bin_seperation = HOG_BIN_SEPERATION;
+
+	//HOG Histogram Initialization
 	int size_histogram = (hog_image.rows()/cell_size) * (hog_image.cols()/cell_size);
 	double ** histogram = new double*[size_histogram];
 	for (int assign = 0;assign < size_histogram; ++assign){
@@ -436,34 +452,49 @@ void hog_implementation(){
 	printf("Hog Initialized\n");
 
 	//HOG Histogram
-	int index_x = 0, index_y = 0, lower_boundary = 0, upper_boundary = 0;
+	int index_x = 0, index_y = 0, angle_xy = 0, lower_bound = 0, upper_bound = 0;
 	for (int row = 0; row < hog_image.rows()/cell_size; ++row){
 		for (int col = 0; col < hog_image.cols()/cell_size; ++col){
 			for (int cell_r = 0; cell_r < cell_size; ++cell_r){
 				for (int cell_c = 0; cell_c < cell_size; ++cell_c){
 					index_x = (cell_size * row) + cell_r;
 					index_y = (cell_size * col) + cell_c;
-					lower_boundary = ((int)(((int)angle[index_x][index_y])/10));
-					upper_boundary = ((int)(((int)angle[index_x][index_y])/10));
+					angle_xy = ((int)angle[index_x][index_y]);
 
-					if (lower_boundary % 2 == 0)
-						lower_boundary = (lower_boundary - 1) * 10;
-					else
-						lower_boundary = lower_boundary * 10;
-
-					if (upper_boundary % 2 == 0)
-						upper_boundary = (upper_boundary + 2) * 10;
-					else
-						upper_boundary = (upper_boundary + 1) * 10;
-
-					//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((angle[index_x][index_y] - lower_boundary)/(float)bin_seperation);
-					histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
-					//histogram[(row * cell_size) + col][(lower_boundary - 10) / bin_seperation] += magnitude[index_x][index_y] * ((upper_boundary - angle[index_x][index_y])/(float)bin_seperation);
-					printf("index_x%dindex_y%dHR%dHC%d\n",index_x,index_y,(row * (hog_image.rows()/cell_size)) + col,(upper_boundary - 10) / bin_seperation);
+					//finding bin number
+					for (int move = -10; move <= 190; move += HOG_BIN_SEPERATION){
+							if (angle_xy <= move){
+									upper_bound = move;
+									break;
+							}
+							if ((angle_xy - move) <= HOG_BIN_SEPERATION)
+									lower_bound = move;
+					}
+					if (upper_bound == 190)
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y];
+					else if (lower_bound == -10)
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][0] += magnitude[index_x][index_y];
+					else{
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
+																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
+							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
+							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
+																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
+					}
+					//if (lower_bound >= 90.00)
+						//printf("index_x%dindex_y%dLB%dUB%d\n",index_x,index_y,lower_bound,upper_bound);
 				}
 			}
 		}
 	}
+
+
+	//HOG Blocks
+	int block_bin_size = HOG_BIN_SIZE * 4;
+	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
+
+
+
 
 	printf("Hog Out\n");
 }
@@ -615,6 +646,11 @@ int main(int argc, char *argv[])
   write_detection_image("final_overlay_output.png", detectedBoxes, input_image);
 /*
   SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
+=======
+/*
+
+ SDoublePlane car_template = SImageIO::read_png_file("template-car.png");
+>>>>>>> 698fa541058b6ce52e063099f35ca5b04a6b7539
 
   // calculate car template's mean
   int car_template_x = car_template.rows();
@@ -703,11 +739,20 @@ int main(int argc, char *argv[])
 
   // run a sliding window on the pass image of the same dimension as template image
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 698fa541058b6ce52e063099f35ca5b04a6b7539
 */
 
 
 
 	//hog_implementation();
+
+
+
+
+
 
 /*
   // test step 2 by applying mean filters to the input image
