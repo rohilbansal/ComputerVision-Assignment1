@@ -516,7 +516,6 @@ double window_variance(SDoublePlane image, int row, int col, int width, int heig
       variance += (image[i][j] - mean) * (image[i][j] - mean);
 
   variance = variance / (width * height);
-
   return variance;
 }
 
@@ -533,35 +532,41 @@ double window_template_variance(SDoublePlane windowImage, SDoublePlane templateI
   return S_fg;
 }
 
+//Function to find the template match in the source image
 std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_template, double car_template_mean, double car_template_variance){
+
+  //Image Information - Morphological Filtered Image & Template Information
   int height = pass_image.rows(), width = pass_image.cols();
   int templateHeight = car_template.rows(), templateWidth = car_template.cols();
+  //Detected boxes information
   std::vector<DetectedBox> detectedBoxes;
+
+
+  //JUMP_X and JUMP_Y are configuration parameters
   for(int row_index = 0; row_index + templateHeight + JUMP_X < height; row_index += JUMP_X){
     for(int col_index = 0; col_index + templateWidth + JUMP_Y < width; col_index += JUMP_Y){
-      // sliding window --
+      // sliding window
       // find window's mean, variance
       double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
-      if(mean < MEAN_THRESHOLD)
+      //If mean itself is below the threshold no point moving forward - LATER NEEDS TO BE REWORKED FOR BLACK CARS
+	  if(mean < MEAN_THRESHOLD)
         continue;
 
+	  //Calculate window variance
       double window_var = window_variance(pass_image, row_index, col_index, templateWidth, templateHeight, mean);
-
-      double S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
+	  //Calculate window_template variance
+	  double S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
       double corr_coefficient = S_fg / (sqrt(window_var) * sqrt(car_template_variance));
       //cout << "window_var " << window_var << " car_template_variance " << car_template_variance << " S_fg " << S_fg << endl << " corr " << corr_coefficient << endl;
-      if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
+      //Calculate correlation coefficient
+	  if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
 
         // add a new instance of detectedBox in vector
         cout << row_index << ", " << col_index << " corr " << corr_coefficient << " mean " << mean << endl;
         detectedBoxes.push_back(DetectedBox(row_index, col_index, templateWidth, templateHeight, corr_coefficient));
         //return detectedBoxes;
       }
-
         //cout << corr_coefficient << endl;
-
-      // check the
-
     }
   }
   return detectedBoxes;
@@ -640,31 +645,32 @@ int main(int argc, char *argv[])
 	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
 
 
-  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
 
+  //Template Images
+  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
   int width = car_template.rows(), height = car_template.cols();
+
+  //Template Mean
   double car_template_mean;
   for(int i = 0; i < width; i++)
     for(int j = 0; j < height; j++)
         car_template_mean += car_template[i][j];
-
   car_template_mean = car_template_mean / (width * height);
 
+  //Template Variance
   double car_template_variance;
-
   for(int i = 0; i < width; i++)
     for(int j = 0; j < height; j++)
       car_template_variance += (car_template[i][j] - car_template_mean) * (car_template[i][j] - car_template_mean);
-
   car_template_variance = car_template_variance / (width * height);
 
-  std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, car_template, car_template_mean, car_template_variance);
 
+  std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, car_template, car_template_mean, car_template_variance);
   write_detection_image("final_overlay_output.png", detectedBoxes, input_image);
 
 
   //double p[4][4] = {{1,3,3,4}, {7,2,3,4}, {1,6,3,6}, {2,5,7,2}};
-
+/*
   double sample[pass_image.rows()][pass_image.cols()];
   for(int i=0; i<pass_image.rows(); i++){
     for(int j=0; j<pass_image.cols(); j++){
@@ -674,7 +680,7 @@ int main(int argc, char *argv[])
 
 	// Interpolate
 	std::cout << bicubicInterpolate(sample, 0.1, 0.2) << '\n';
-
+*/
 
 /*
   SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
