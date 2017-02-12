@@ -573,6 +573,7 @@ double cubicInterpolate (double p[4], double x) {
 	return p[1] + 0.5 * x*(p[2] - p[0] + x*(2.0*p[0] - 5.0*p[1] + 4.0*p[2] - p[3] + x*(3.0*(p[1] - p[2]) + p[3] - p[0])));
 }
 
+// returns a value at x and y posiiton depending on the input arguments
 double bicubicInterpolate (double p[4][4], double x, double y) {
 	double arr[4];
 	arr[0] = cubicInterpolate(p[0], y);
