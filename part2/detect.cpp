@@ -599,7 +599,7 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_
       // find window's mean, variance
       
 
-	  if (row_index == ((int)(height/2)))
+	  if (row_index == ((int)(height/2)) && col_index == 0)
 			  printf("Sliding Window Halfway through\n");
 
 	  double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
