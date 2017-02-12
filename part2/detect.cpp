@@ -776,26 +776,17 @@ double threshold_same_window_value(const double window_width, const double windo
 //Eliminate overlapping windows
 std::vector<DetectedBox> remove_duplicate_box(std::vector<DetectedBox> all_windows){
 	
+	cout << "Original Windows Found : " << all_windows.size() << endl;
 	double threshold_same_window = 0.0;	
 	double window_distance = 0.0;
 	std::vector<DetectedBox> unique_window_set, buffer_window_set;
 	DetectedBox *selected_db;
 	selected_db = &all_windows[0];
- 	printf("Size %d\n",all_windows.size());
-//	printf("%d\n",all_windows[0].row);
-	cout << selected_db->row << endl;
-	cout << all_windows.empty() << endl;
 	threshold_same_window = threshold_same_window_value(selected_db->width, selected_db->height);
-	cout << threshold_same_window;	
-	//for (unsigned int elements = 0; elements < all_windows.size(); ++elements){
 	while(!all_windows.empty()){
-//		printf("pointer dump");
 		buffer_window_set.push_back(all_windows[0]);
-//		printf("Before Dump");
 		threshold_same_window = threshold_same_window_value(all_windows[0].width, all_windows[0].height);
-//		printf("Threshold %f\n",threshold_same_window);
 		for (unsigned int inner_db = 1; inner_db != all_windows.size(); ++inner_db){
-			//if ((selected_db->row != inner_db->row) && (selected_db->col != inner_db->col)){
 				selected_db = &all_windows[inner_db];
 				for (unsigned int buffer_db = 0; buffer_db < buffer_window_set.size(); ++buffer_db){
 					window_distance = sqrt( pow((selected_db->row - buffer_window_set[buffer_db].row), 2) + pow((selected_db->col - buffer_window_set[buffer_db].col), 2));
@@ -814,19 +805,12 @@ std::vector<DetectedBox> remove_duplicate_box(std::vector<DetectedBox> all_windo
 				selected_db = &buffer_window_set[buffer_db];
 			}
 		}
-//		if ((selected_db->row == all_windows[0].row) && (selected_db->col == all_windows[0].col)){
 		unique_window_set.push_back(*selected_db);
 		all_windows.erase(all_windows.begin());
 		buffer_window_set.clear();
-//		}
-		//all_windows.erase(all_windows.begin());
-		//all_windows = buffer_window_set;
-		//buffer_window_set.clear();
-		printf("Size %d\n",all_windows.size());
-//		unique_window_set.push_back(*selected_db);
-
+		//printf("Size %d\n",all_windows.size());
 	}
-	printf("Size %d\n", unique_window_set.size());
+	cout << "After removal of duplicate windows, Cars Found : " << unique_window_set.size() << endl;
 	return unique_window_set;
 	
 }
@@ -851,7 +835,7 @@ void sliding_window_car_detection(string template_name,const SDoublePlane &pass_
   printf("All car matching windows found\n");
   std::vector<DetectedBox> unique_box = remove_duplicate_box(detectedBoxes);
   printf("Overlapping windows eliminated\n");
-  write_detection_image("final_overlay_output.png", detectedBoxes , input_image);
+  write_detection_image("final_overlay_output.png", unique_box , input_image);
 
 }
 
