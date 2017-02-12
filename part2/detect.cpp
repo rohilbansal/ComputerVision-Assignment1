@@ -20,13 +20,6 @@
 #include <constants.h>
 
 
-#define HOG_CELL_SIZE 8
-#define HOG_BIN_SIZE 9
-#define HOG_BIN_SEPERATION 20
-#define HOG_BLOCK_SIZE 2
-#define PI 3.14159265
-
-
 using namespace std;
 
 // The simple image class is called SDoublePlane, with each pixel represented as
@@ -119,9 +112,40 @@ void  write_detection_image(const string &filename, const vector<DetectedBox> &c
 // The rest of these functions are incomplete. These are just suggestions to
 // get you started -- feel free to add extra functions, change function
 // parameters, etc.
+
+
 /*
-gdhody Custom functions
+     -------------------------------Custom functions--------------------------------------
 */
+
+/* **************----------------Function List-------------------*****************
+
+   gaussianValue_xy
+   gaussianValue_x
+   create_gaussian_kernel_1D
+   create_gaussian_kernel_2D
+   extend_image_boundaries
+   min_max
+   write_normalized_image
+   convolve_separable
+   convolve_general
+   binary_image
+   erosion
+   dilation
+   sobel_gradient_filter
+   find_edges
+   hog_implementation
+   window_mean
+   window_variance
+   window_template_variance
+   slide_window
+   magnitude_image
+   slidingWindowCarDetection
+   cubicInterpolate
+   biCubicInterpolate
+
+*/
+
 double gaussianValue_xy(const int x, const int y, const int sigma){
 	return exp(-( ((double)(x * x + y * y)) / ((double)(2.00 * sigma * sigma)) )) / ((double)(2.00 * PI * sigma * sigma));
 }
@@ -130,7 +154,6 @@ double gaussianValue_xy(const int x, const int y, const int sigma){
 double gaussianValue_x(const int x, const int sigma){
 	return exp(-( ((double)(x * x)) / ((double)(2.00 * sigma * sigma)) )) / sqrt((double)(2.00 * PI * sigma * sigma));
 }
-
 
 
 //Creates a Gaussian 1D kernel
@@ -149,7 +172,6 @@ SDoublePlane create_gaussian_kernel_1D(const int windowSize,const int sigma){
 }
 
 
-
 //Creates a Gaussian 2D kernel
 SDoublePlane create_gaussian_kernel_2D(const int windowSize,const int sigma){
 	printf("---***---gaussian kernel---***---\n");
@@ -165,8 +187,8 @@ SDoublePlane create_gaussian_kernel_2D(const int windowSize,const int sigma){
 	printf("---***---gaussian kernel---***---\n");
 	printf("-----2D gaussian kernel with sigma %d and window size %d-----\n",sigma,windowSize);
 	return gaussianKernel;
-
 }
+
 
 SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_extend, string file_name){
 
@@ -204,16 +226,11 @@ SDoublePlane extend_image_boundaries(const SDoublePlane input, int length_to_ext
 	}
 
 	SImageIO::write_png_file(file_name.c_str(),extended_image,extended_image,extended_image);
-
-return extended_image;
+	return extended_image;
 }
 
 
-
-/*
-Custom functions end
-*/
-
+//Finds the minimum and maximum value in a 2D array - SDoublePlane
 void min_max(const SDoublePlane &magnitude,double &minV,double &maxV){
 	//updating the normalied values in spectrogram for displaying in png image
 	for (int row_loop = 0;row_loop < magnitude.rows(); ++row_loop){
@@ -227,12 +244,10 @@ void min_max(const SDoublePlane &magnitude,double &minV,double &maxV){
 }
 
 
-
-
+//Writes a png image with normalization of 0-255 grayscale
 void write_normalized_image(string file_name,SDoublePlane magnitude){
 	double minV, maxV;
 	min_max(magnitude, minV, maxV);
-	//printf("%f,%f\n", minV, maxV);
 	//updating the normalied values in spectrogram for displaying in png image
 	for (int rowLoop = 0;rowLoop < magnitude.rows(); ++rowLoop){
 	    for(int columnLoop = 0;columnLoop < magnitude.cols(); ++columnLoop){
@@ -240,19 +255,19 @@ void write_normalized_image(string file_name,SDoublePlane magnitude){
 	             magnitude[rowLoop][columnLoop] = ((magnitude[rowLoop][columnLoop] - minV) * (255.00/(maxV - minV)));
 	    }
 	}
-
 	SImageIO::write_png_file(file_name.c_str(),magnitude,magnitude,magnitude);
 }
 
-// Convolve an image with a separable convolution kernel
-//
+
+// Convolve an image with 2 1D kernel - Faster
 SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_filter, const double *column_filter, int filter_size)
 {
+
+	//Center Point of the kernel
 	int center_point = ((int)(filter_size/2.00));
 	SDoublePlane complete_image = extend_image_boundaries(input,center_point,"extended_convolve_image.png");
 	SDoublePlane output = SDoublePlane(complete_image.rows(), complete_image.cols());
 	SDoublePlane Routput = SDoublePlane(input.rows(), input.cols());
-
 
 	//Fill the image content in the extended image
 	for(int row_loop = 0; row_loop < complete_image.rows(); ++row_loop){
@@ -262,11 +277,8 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 		  }
 	}
 
-
-
-
-//Can be further improved with dynamic programming
-  for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
+	//Column Filter - Can be further improved with dynamic programming
+	for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
 		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
 				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
 							output[row_loop][col_loop] += complete_image[row_loop - filter_move][col_loop] *
@@ -274,11 +286,10 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
 				  }
 		  }
-  }
+	}
 
-
-
-  for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
+	//Row Filter - Can be further improved with dynamic programming
+	for(int row_loop = center_point; row_loop < complete_image.rows() - center_point; ++row_loop){
 		  for(int col_loop = center_point; col_loop < complete_image.cols() - center_point; ++col_loop){
 				  for(int filter_move = -center_point; filter_move <= center_point; ++filter_move){
 							Routput[row_loop - center_point][col_loop - center_point] += output[row_loop][col_loop - filter_move] *
@@ -286,14 +297,13 @@ SDoublePlane convolve_separable(const SDoublePlane &input, const double *row_fil
 							//output[row_loop - center_point][col_loop - center_point] /= 8.00;
 				  }
 		  }
-  }
+	}
 
-  // Convolution code here
   return Routput;
 }
 
+
 // Convolve an image with a  convolution kernel
-//
 SDoublePlane convolve_general(SDoublePlane input, const SDoublePlane &filter)
 {
 	int center_point = ((int)filter.rows() / 2);
@@ -313,13 +323,11 @@ SDoublePlane convolve_general(SDoublePlane input, const SDoublePlane &filter)
                         }
                 }
         }
-
-
   return output;
 }
 
 
-//Apply a threshold to binary Image
+//Apply a threshold to an image to get a binary image
 SDoublePlane binary_image(const char* image_name,const double threshold){
 	SDoublePlane edge_image = SImageIO::read_png_file(image_name);
 	for(int row_loop = 0;row_loop < edge_image.rows(); ++row_loop){
@@ -333,8 +341,47 @@ SDoublePlane binary_image(const char* image_name,const double threshold){
 	return edge_image;
 }
 
-SDoublePlane dilation(SDoublePlane edge_image,int filter_size){
 
+//Morphological Erosion Filter
+SDoublePlane erosion(SDoublePlane edge_image,const int filter_size){
+
+	//Generate a + Filter
+	SDoublePlane morph_erode_filter = SDoublePlane(filter_size,filter_size);
+	for (int row = 0; row < morph_erode_filter.rows(); ++row){
+			for (int col = 0; col < morph_erode_filter.cols(); ++col){
+					morph_erode_filter[row][col] = 1.00;
+			}
+	}
+
+	int center_point = (int)(morph_erode_filter.rows() / 2);
+
+
+	SDoublePlane morph_erosion = SDoublePlane(edge_image.rows(),edge_image.cols());
+	for (int row = center_point; row < edge_image.rows() - center_point; ++row){
+			for (int col = center_point; col < edge_image.cols() - center_point; ++col){
+					morph_erosion[row][col] = 255.0;
+					for(int k = 0; k < morph_erode_filter.rows(); k++){
+                                for(int l = 0; l < morph_erode_filter.cols(); l++){
+                                        if (morph_erode_filter[k][l] == 1.00 && edge_image[k + row - 1][l + col - 1] == 0.0){
+												morph_erosion[row][col] = 0.0;
+												break;
+										}
+                                }
+								if (morph_erosion[row][col] == 0.0)
+										break;
+                    }
+			}
+	}
+
+	return morph_erosion;
+
+}
+
+
+//Morphological Dilation filter
+SDoublePlane dilation(SDoublePlane edge_image,const int filter_size){
+
+	//Generate a square filter
 	SDoublePlane morph_filter = SDoublePlane(filter_size,filter_size);
 	for (int row = 0; row < morph_filter.rows(); ++row){
 			for (int col = 0; col < morph_filter.cols(); ++col){
@@ -365,9 +412,7 @@ SDoublePlane dilation(SDoublePlane edge_image,int filter_size){
 }
 
 
-
-// Apply a sobel operator to an image, returns the result
-//
+// Apply a sobel operator to an image both dx and dy option, returns the result
 SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
 {
   //SDoublePlane output(input.rows(), input.cols());
@@ -376,12 +421,10 @@ SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
 
   double *row_operation, *column_operation;
   if (_gx){
-	//printf("dx\n");
 	row_operation = sobel_spread;
 	column_operation = sobel_plane;
   }
   else{
-	//printf("dy\n");
 	row_operation = sobel_plane;
 	column_operation = sobel_spread;
   }
@@ -392,18 +435,20 @@ SDoublePlane sobel_gradient_filter(const SDoublePlane &input, bool _gx)
 		write_normalized_image("sobel_dx.png",output);
   else
 		write_normalized_image("sobel_dy.png",output);
-  // Implement a sobel gradient estimation filter with 1-d filters
-
 
   return output;
 }
 
+
 // Apply an edge detector to an image, returns the binary edge map
-//
 SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 {
   SDoublePlane output(input.rows(), input.cols());
-
+/*
+ *
+ *CREATED SAME FUNCTION WITH DIFFERENT NAME binary_image
+ *
+ */
   // Implement an edge detector of your choice, e.g.
   // use your sobel gradient operator to compute the gradient magnitude and threshold
 
@@ -411,8 +456,11 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 }
 
 
-void hog_implementation(){
-	SDoublePlane input_image = SImageIO::read_png_file("hog.png");
+//Trying a different approach - HOG Dalal Detector - Status Completed & Working - can be used to train car images and train SVM or logistic
+void hog_implementation(const char *file_name){
+
+	//Input to the file
+	SDoublePlane input_image = SImageIO::read_png_file(file_name);
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
 	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
@@ -421,20 +469,16 @@ void hog_implementation(){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
 			angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
-			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
+			//atan gives between -PI/2 to PI/2 rescaling to 0 to 180
+			//Can also convert the -ve value to 90 to 180 but since its just vector magnitude stored in bins adding +90.00
 			angle[row_loop][col_loop] += 90.00;
 		}
 	}
 
-
-	//angle max min
-	double minA,maxA;
-	min_max(angle,minA,maxA);
-	printf ("Angle %f %f",minA,maxA);
-
 	write_normalized_image("hog_magnitude.png",magnitude);
+	//Using the rescaled 0-255 magnitude
 	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
-	printf("Hog Magnitude Computed\n");
+	printf("Hog Preprocessing Done\n");
 
 	//HOG Constants
 	int cell_size = HOG_CELL_SIZE;
@@ -457,11 +501,13 @@ void hog_implementation(){
 		for (int col = 0; col < hog_image.cols()/cell_size; ++col){
 			for (int cell_r = 0; cell_r < cell_size; ++cell_r){
 				for (int cell_c = 0; cell_c < cell_size; ++cell_c){
+					
+					//Index position og magnitude and angle
 					index_x = (cell_size * row) + cell_r;
 					index_y = (cell_size * col) + cell_c;
 					angle_xy = ((int)angle[index_x][index_y]);
 
-					//finding bin number
+					//Finding Bin number to add magnitude
 					for (int move = -10; move <= 190; move += HOG_BIN_SEPERATION){
 							if (angle_xy <= move){
 									upper_bound = move;
@@ -470,14 +516,16 @@ void hog_implementation(){
 							if ((angle_xy - move) <= HOG_BIN_SEPERATION)
 									lower_bound = move;
 					}
+
+					//Adding to the histogram for HOG cell
 					if (upper_bound == 190)
 							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y];
 					else if (lower_bound == -10)
 							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][0] += magnitude[index_x][index_y];
 					else{
+							//If angle between upper and lower bound magnitude is added propotionally
 							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
 																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
-							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
 							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
 																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
 					}
@@ -492,23 +540,22 @@ void hog_implementation(){
 	//HOG Blocks
 	int block_bin_size = HOG_BIN_SIZE * 4;
 	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
-
-
-
-
-	printf("Hog Out\n");
+	printf("Histogram of Hog Calculated\n");
 }
 
+
+//Image Window Mean
 double window_mean(SDoublePlane image, int row, int col, int width, int height){
-  double mean;
-  for(int i = row; i < row + height; i++)
-    for(int j = col; j < col + width; j++)
-      mean += image[i][j];
+	  double mean;
+	  for(int i = row; i < row + height; i++)
+		for(int j = col; j < col + width; j++)
+		  mean += image[i][j];
 
-  mean = mean / (width * height);
-  return mean;
+      return (mean / (width * height));
 }
 
+
+//Image Window variance
 double window_variance(SDoublePlane image, int row, int col, int width, int height, double mean){
   double variance;
   for(int i = row; i < row + height; i++)
@@ -519,6 +566,8 @@ double window_variance(SDoublePlane image, int row, int col, int width, int heig
   return variance;
 }
 
+
+//Image & Template Variance
 double window_template_variance(SDoublePlane windowImage, SDoublePlane templateImage, int row, int col, int width, int height, double templateMean, double windowMean){
   double S_fg;
   for(int i_template = 0, i_window = row; i_template < height &&  i_window < row + height ; i_template++, i_window++){
@@ -532,7 +581,8 @@ double window_template_variance(SDoublePlane windowImage, SDoublePlane templateI
   return S_fg;
 }
 
-//Function to find the template match in the source image
+
+//Sliding Window template match in the source image
 std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_template, double car_template_mean, double car_template_variance){
 
   //Image Information - Morphological Filtered Image & Template Information
@@ -547,10 +597,15 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_
     for(int col_index = 0; col_index + templateWidth + JUMP_Y < width; col_index += JUMP_Y){
       // sliding window
       // find window's mean, variance
-      double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
+      
+
+	  if (row_index == ((int)(height/2)))
+			  printf("Sliding Window Halfway through\n");
+
+	  double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
       //If mean itself is below the threshold no point moving forward - LATER NEEDS TO BE REWORKED FOR BLACK CARS
 	  if(mean < MEAN_THRESHOLD)
-        continue;
+	      continue;
 
 	  //Calculate window variance
       double window_var = window_variance(pass_image, row_index, col_index, templateWidth, templateHeight, mean);
@@ -573,81 +628,23 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_
 }
 
 
-// bicubic interpolation
-double cubicInterpolate (double p[4], double x) {
-	return p[1] + 0.5 * x*(p[2] - p[0] + x*(2.0*p[0] - 5.0*p[1] + 4.0*p[2] - p[3] + x*(3.0*(p[1] - p[2]) + p[3] - p[0])));
-}
-
-// returns a value at x and y posiiton depending on the input arguments
-double bicubicInterpolate (double p[4][4], double x, double y) {
-	double arr[4];
-	arr[0] = cubicInterpolate(p[0], y);
-	arr[1] = cubicInterpolate(p[1], y);
-	arr[2] = cubicInterpolate(p[2], y);
-	arr[3] = cubicInterpolate(p[3], y);
-	return cubicInterpolate(arr, x);
-}
-
-//
-// This min file just outputs a few test images. You'll want to change it to do
-//  something more interesting!
-//
-int main(int argc, char *argv[])
-{
-	if(!(argc == 2))
-    	{
-      		cerr << "usage: " << argv[0] << " input_image" << endl;
-	        return 1;
-    	}
-
-  	string input_filename(argv[1]);
-  	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
-	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
-	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
-	SImageIO::write_png_file("output.png",smoothed_image,smoothed_image,smoothed_image);
-
-	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
-	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
+//Finds the magnitude of the image
+SDoublePlane magnitude_image(const SDoublePlane &sobel_dx,const SDoublePlane &sobel_dy){
 	SDoublePlane magnitude = SDoublePlane(sobel_dx.rows(),sobel_dy.cols());
 	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
 		}
-	}
-	write_normalized_image("sobel_magnitude.png",magnitude);
-	SDoublePlane edge_image = binary_image("sobel_magnitude.png",40.00);
-	SImageIO::write_png_file("binary_image.png",edge_image,edge_image,edge_image);
-	SDoublePlane morph_dilation = dilation(edge_image,11);
-	SDoublePlane pass_image = SDoublePlane(edge_image.rows(),edge_image.cols());
-	for (int row = 0;row < edge_image.rows(); ++row){
-			for (int col = 0;col < edge_image.cols(); ++col){
-					if (morph_dilation[row][col] == 255.00)
-							pass_image[row][col] = input_image[row][col];
-			}
-	}
-	//morph_dilation = dilation(morph_dilation,9);
-	/*DoublePlane morph_erosion = SDoublePlane(edge_image.rows(),edge_image.cols());
-	for (int row = 1; row < edge_image.rows() - 1; ++row){
-			for (int col = 1; col < edge_image.cols() - 1; ++col){
-					morph_erosion[row][col] = 255.0;
-					for(int k = 0; k < morph_erode_filter.rows(); k++){
-                                for(int l = 0; l < morph_erode_filter.cols(); l++){
-                                        if (morph_erode_filter[k][l] == 1.00 && edge_image[k + row - 1][l + col - 1] == 0.0)
-												morph_erosion[row][col] = 0.0;
-                                }
-                    }
-			}
-	}*/
-
-//	SImageIO::write_png_file("morph_erosion.png",morph_erosion,morph_erosion,morph_erosion);
-
-	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
-	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
+	}	
+	return magnitude;
+}
 
 
-
+//Sliding Window Car Detection
+void slidingWindowCarDetection(string template_name,const SDoublePlane &pass_image,const SDoublePlane &input_image){
+	
   //Template Images
-  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
+  SDoublePlane car_template = SImageIO::read_png_file((template_name + ".png").c_str());
   int width = car_template.rows(), height = car_template.cols();
 
   //Template Mean
@@ -664,9 +661,71 @@ int main(int argc, char *argv[])
       car_template_variance += (car_template[i][j] - car_template_mean) * (car_template[i][j] - car_template_mean);
   car_template_variance = car_template_variance / (width * height);
 
-
   std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, car_template, car_template_mean, car_template_variance);
   write_detection_image("final_overlay_output.png", detectedBoxes, input_image);
+
+}
+
+
+// bicubic interpolation
+double cubicInterpolate (double p[4], double x) {
+	return p[1] + 0.5 * x*(p[2] - p[0] + x*(2.0*p[0] - 5.0*p[1] + 4.0*p[2] - p[3] + x*(3.0*(p[1] - p[2]) + p[3] - p[0])));
+}
+
+
+// returns a value at x and y posiiton depending on the input arguments
+double bicubicInterpolate (double p[4][4], double x, double y) {
+	double arr[4];
+	arr[0] = cubicInterpolate(p[0], y);
+	arr[1] = cubicInterpolate(p[1], y);
+	arr[2] = cubicInterpolate(p[2], y);
+	arr[3] = cubicInterpolate(p[3], y);
+	return cubicInterpolate(arr, x);
+}
+
+
+//Main Function
+int main(int argc, char *argv[])
+{
+	if(!(argc == 2))
+    	{
+      		cerr << "usage: " << argv[0] << " input_image" << endl;
+	        return 1;
+    	}
+
+
+	//Assignment Functions Simulation
+  	string input_filename(argv[1]);
+  	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+	SDoublePlane gaussian = create_gaussian_kernel_2D(5,1);
+	SDoublePlane smoothed_image	= convolve_general(input_image,gaussian);
+	SImageIO::write_png_file("gaussian_2D_smooth_output.png",smoothed_image,smoothed_image,smoothed_image);
+
+
+	//Car Object Detection
+	//Find the gradient dx and dy and magnitude of the image
+	SDoublePlane sobel_dx = sobel_gradient_filter(input_image, true);
+	SDoublePlane sobel_dy = sobel_gradient_filter(input_image, false);
+	SDoublePlane magnitude = magnitude_image(sobel_dx, sobel_dy);
+	write_normalized_image("sobel_magnitude.png",magnitude);
+	//Image Name, Intensity Offset for 0 & 1 Binary Image
+	SDoublePlane edge_image = binary_image("sobel_magnitude.png", BINARY_IMAGE_THRESHOLD);
+	SImageIO::write_png_file("binary_image.png",edge_image,edge_image,edge_image);
+	//Morphology Filter - Dilation x*x filter of 1s
+	SDoublePlane morph_dilation = dilation(edge_image, MORPH_DILATION_FILTER);
+	//Using the morph_dilation image as a base to merge original image
+	SDoublePlane pass_image = SDoublePlane(edge_image.rows(),edge_image.cols());
+	for (int row = 0;row < edge_image.rows(); ++row){
+			for (int col = 0;col < edge_image.cols(); ++col){
+					if (morph_dilation[row][col] == 255.00)
+							pass_image[row][col] = input_image[row][col];
+			}
+	}
+	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
+	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
+	printf("Sliding Window Detection on image %s started\n" , input_filename.c_str());
+	slidingWindowCarDetection(CAR_TEMPLATE_NAME,pass_image,input_image);
+
 
 
   //double p[4][4] = {{1,3,3,4}, {7,2,3,4}, {1,6,3,6}, {2,5,7,2}};

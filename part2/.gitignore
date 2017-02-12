@@ -3,3 +3,12 @@ detect
 detect.exe
 .profile
 *.txt
+extended_convolve_image.png
+morph_dilation.png
+pass_image.png
+sobel_dx.png
+sobel_dy.png
+sobel_magnitude.png
+final_overlay_output.png
+gaussian_2D_smooth_output.png
+
