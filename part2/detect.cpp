@@ -468,23 +468,32 @@ void hog_implementation(const char *file_name){
 	for(int row_loop = 0; row_loop < magnitude.rows(); row_loop++){
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
-			angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
-			//atan gives between -PI/2 to PI/2 rescaling to 0 to 180
-			//Can also convert the -ve value to 90 to 180 but since its just vector magnitude stored in bins adding +90.00
+			if (sobel_dx[row_loop][col_loop] != 0.0)
+				angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
+			else if (sobel_dy[row_loop][col_loop] != 0.0)
+				angle[row_loop][col_loop] = 0.0;				
+			else
+				angle[row_loop][col_loop] = -90.00;
+			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
 			angle[row_loop][col_loop] += 90.00;
 		}
 	}
 
-	write_normalized_image("hog_magnitude.png",magnitude);
-	//Using the rescaled 0-255 magnitude
-	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
-	printf("Hog Preprocessing Done\n");
 
+	//angle max min
+	double minA,maxA;
+	min_max(angle,minA,maxA);
+	printf ("Angle %f %f",minA,maxA);
+
+	write_normalized_image("hog_magnitude.png",magnitude);
+	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
+	printf("Hog Magnitude Computed\n");
+	
 	//HOG Constants
 	int cell_size = HOG_CELL_SIZE;
 	int bin_size = HOG_BIN_SIZE;
 	int bin_seperation = HOG_BIN_SEPERATION;
-
+	
 	//HOG Histogram Initialization
 	int size_histogram = (hog_image.rows()/cell_size) * (hog_image.cols()/cell_size);
 	double ** histogram = new double*[size_histogram];
@@ -501,32 +510,28 @@ void hog_implementation(const char *file_name){
 		for (int col = 0; col < hog_image.cols()/cell_size; ++col){
 			for (int cell_r = 0; cell_r < cell_size; ++cell_r){
 				for (int cell_c = 0; cell_c < cell_size; ++cell_c){
-					
-					//Index position og magnitude and angle
 					index_x = (cell_size * row) + cell_r;
 					index_y = (cell_size * col) + cell_c;
 					angle_xy = ((int)angle[index_x][index_y]);
-
-					//Finding Bin number to add magnitude
+					
+					//finding bin number
 					for (int move = -10; move <= 190; move += HOG_BIN_SEPERATION){
 							if (angle_xy <= move){
 									upper_bound = move;
 									break;
 							}
 							if ((angle_xy - move) <= HOG_BIN_SEPERATION)
-									lower_bound = move;
+									lower_bound = move;		
 					}
-
-					//Adding to the histogram for HOG cell
 					if (upper_bound == 190)
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y];
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y]; 
 					else if (lower_bound == -10)
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][0] += magnitude[index_x][index_y];
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][0] += magnitude[index_x][index_y];
 					else{
-							//If angle between upper and lower bound magnitude is added propotionally
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
 																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
-							histogram[(row * ((int)(hog_image.rows()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
+							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
 																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
 					}
 					//if (lower_bound >= 90.00)
@@ -536,11 +541,90 @@ void hog_implementation(const char *file_name){
 		}
 	}
 
-
+	
+	
 	//HOG Blocks
 	int block_bin_size = HOG_BIN_SIZE * 4;
-	int block_size = HOG_CELL_SIZE * HOG_BLOCK_SIZE;
-	printf("Histogram of Hog Calculated\n");
+	int size_block = (hog_image.rows()/cell_size - 1) * (hog_image.cols()/cell_size - 1);
+
+
+	double **blocks = new double*[size_block];
+	for (int assign = 0;assign < size_block; ++assign){
+		blocks[assign] = new double[block_bin_size];
+		for (int init_zero = 0; init_zero < block_bin_size; ++init_zero)
+			blocks[assign][init_zero] = 0.0;
+	}
+
+	double **blocks_normalized = new double*[size_block];
+	for (int assign = 0;assign < size_block; ++assign){
+		blocks_normalized[assign] = new double[block_bin_size];
+		for (int init_zero = 0; init_zero < block_bin_size; ++init_zero)
+			blocks_normalized[assign][init_zero] = 0.0;
+	}
+
+	//Finding the blocks
+	int blocks_per_row = (hog_image.cols()/cell_size);
+	for (int row = 0; row < (hog_image.rows()/cell_size) - 1; ++row){
+		for (int col = 0; col < (hog_image.cols()/cell_size) - 1; ++col){
+			for (int block_r = 0; block_r < HOG_BLOCK_SIZE; ++block_r){
+				for (int block_c = 0; block_c < HOG_BLOCK_SIZE; ++block_c){
+					for (int cell = 0; cell < HOG_BIN_SIZE; ++cell){
+							//printf("%d , %d\n",(row * (blocks_per_row - 1)) + col,(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell);
+							blocks[(row * (blocks_per_row - 1)) + col][(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell] 
+									= histogram[(row * blocks_per_row) + col + (block_r * blocks_per_row) + block_c][cell];
+						
+					}
+				}
+			}
+		}
+	}
+	printf("HOG Block Size (C,R) : %d,%d\n",((hog_image.cols()/cell_size)-1) , ((hog_image.rows()/cell_size)-1));
+
+	//Normalizing the blocks
+	double magnitude_block = 0.0;
+	for (int block_head = 0; block_head < size_block; ++block_head){
+			magnitude_block = 0.0;
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				magnitude_block += (blocks[block_head][block_val] * blocks[block_head][block_val]);
+			magnitude_block = sqrt(magnitude_block);
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				blocks_normalized[block_head][block_val] = blocks[block_head][block_val] / magnitude_block;
+	}
+
+
+	ofstream angle_value;
+	angle_value.open("angle.txt");
+	for (int row = 0; row < hog_image.rows(); ++row){
+			for (int col = 0; col < hog_image.cols(); ++col){
+					angle_value << angle[row][col] << ",";
+			}
+			angle_value << "\n";
+	}
+	angle_value.close();
+
+
+	//output to txt file
+	ofstream hog_vector_values;
+	hog_vector_values.open("hog_vectors.txt");
+	for (int block_head = 0; block_head < size_block; ++block_head){
+			for (int block_val = 0; block_val < block_bin_size; ++block_val)
+				hog_vector_values << blocks_normalized[block_head][block_val] << ",";
+			hog_vector_values << "\n";
+	}
+	hog_vector_values.close();
+
+	ofstream histogram_vector_values;
+	histogram_vector_values.open("histogram_vectors.txt");
+	for (int block_head = 0; block_head < size_histogram; ++block_head){
+			for (int block_val = 0; block_val < HOG_BIN_SIZE; ++block_val)
+				histogram_vector_values << histogram[block_head][block_val] << ",";
+			histogram_vector_values << "\n";
+	}
+	histogram_vector_values.close();
+
+
+
+	printf("Hog Out\n");
 }
 
 
