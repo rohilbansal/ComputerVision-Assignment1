@@ -12,3 +12,5 @@ sobel_magnitude.png
 final_overlay_output.png
 gaussian_2D_smooth_output.png
 binary_image.png
+hog.png
+hog_magnitude.png

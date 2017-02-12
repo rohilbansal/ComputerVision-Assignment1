@@ -67,12 +67,13 @@ void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom, in
 //  Feel free to modify.
 //
 //COMMENTS - Detected Box class details
+
 class DetectedBox {
 public:
   int row, col, width, height;
   double confidence;
   DetectedBox (int, int, int, int, double);
-};
+} ;
 
 DetectedBox::DetectedBox(int r, int c, int w, int h, double conf) {
   row = r;
@@ -126,6 +127,7 @@ void  write_detection_image(const string &filename, const vector<DetectedBox> &c
    create_gaussian_kernel_2D
    extend_image_boundaries
    min_max
+   to_string
    write_normalized_image
    convolve_separable
    convolve_general
@@ -140,7 +142,7 @@ void  write_detection_image(const string &filename, const vector<DetectedBox> &c
    window_template_variance
    slide_window
    magnitude_image
-   slidingWindowCarDetection
+   sliding_window_car_detection
    cubicInterpolate
    biCubicInterpolate
 
@@ -242,6 +244,34 @@ void min_max(const SDoublePlane &magnitude,double &minV,double &maxV){
 		}
 	}
 }
+
+
+//Code Reference Started
+// ---http://www.sanfoundry.com/c-program-integer-to-string-vice-versa/ ---
+//Hacked By Gurleen Singh Dhody -gdhody- 12/Feb/2017
+string to_string(int num)
+{
+	int rem, len = 0, n;
+    n = num;
+    while (n != 0)
+    {
+        len++;
+        n /= 10;
+    }
+    char *value = new char[len + 1];
+    for (int i = 0; i < len; i++)
+    {
+        rem = num % 10;
+        num = num / 10;
+        value[len - i - 1] = rem + '0';
+    }
+    value[len] = '\0';
+    //printf("Number is %s\n",value);
+    string result(value);
+    //printf("%s\n",result.c_str());
+	return result;	
+}
+//Code Reference Finished
 
 
 //Writes a png image with normalization of 0-255 grayscale
@@ -479,12 +509,6 @@ void hog_implementation(const char *file_name){
 		}
 	}
 
-
-	//angle max min
-	double minA,maxA;
-	min_max(angle,minA,maxA);
-	printf ("Angle %f %f",minA,maxA);
-
 	write_normalized_image("hog_magnitude.png",magnitude);
 	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
 	printf("Hog Magnitude Computed\n");
@@ -667,48 +691,144 @@ double window_template_variance(SDoublePlane windowImage, SDoublePlane templateI
 
 
 //Sliding Window template match in the source image
-std::vector<DetectedBox> slide_window(SDoublePlane pass_image, SDoublePlane car_template, double car_template_mean, double car_template_variance){
+std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_template_name){
 
-  //Image Information - Morphological Filtered Image & Template Information
-  int height = pass_image.rows(), width = pass_image.cols();
-  int templateHeight = car_template.rows(), templateWidth = car_template.cols();
-  //Detected boxes information
-  std::vector<DetectedBox> detectedBoxes;
+	//Detected boxes information & Variables To Be Used
+	SDoublePlane car_template;
+	std::vector<DetectedBox> detectedBoxes;
+	int height = 0, car_found_jump = 0, templateHeight = 0, templateWidth = 0, width = 0;
+	double mean = 0.0, window_var = 0.0, S_fg = 0.0, corr_coefficient = 0.0, car_template_mean = 0.0, car_template_variance = 0.0;
+  
+	//Image Information - Morphological Filtered Image
+	height = pass_image.rows(), width = pass_image.cols();
+
+	for(int templates = 1; templates <= NUMBER_OF_TEMPLATES; ++templates){
+
+		printf("%s",("---#####Template " + to_string(templates) + " Started#####---\n").c_str());
+		//Template Images
+		car_template = SImageIO::read_png_file((car_template_name + to_string(templates) + ".png").c_str());
+		templateWidth = car_template.cols();
+		templateHeight = car_template.rows();
+
+		//Template Mean
+		car_template_mean = 0.0;
+		for(int i = 0; i < templateHeight; i++)
+			for(int j = 0; j < templateWidth; j++)
+				car_template_mean += car_template[i][j];
+		car_template_mean = car_template_mean / (templateWidth * templateHeight);
+
+		//Template Variance
+		car_template_variance = 0.0;
+		for(int i = 0; i < templateHeight; i++)
+		    for(int j = 0; j < templateWidth; j++)
+				car_template_variance += (car_template[i][j] - car_template_mean) * (car_template[i][j] - car_template_mean);
+		car_template_variance = car_template_variance / (templateWidth * templateHeight);
+
+		//Testing variables To Jump Window if Car foud
+		car_found_jump = 0;
 
 
-  //JUMP_X and JUMP_Y are configuration parameters
-  for(int row_index = 0; row_index + templateHeight + JUMP_X < height; row_index += JUMP_X){
-    for(int col_index = 0; col_index + templateWidth + JUMP_Y < width; col_index += JUMP_Y){
-      // sliding window
-      // find window's mean, variance
-      
+	  	//JUMP_X and JUMP_Y are configuration parameters
+	  	for(int row_index = 0; row_index + templateHeight + JUMP_X < height; row_index += JUMP_X){
+		    for(int col_index = 0; col_index + templateWidth + JUMP_Y < width; col_index += JUMP_Y){
+		      // sliding window
+		      car_found_jump = 0;
 
-	  if (row_index == ((int)(height/2)) && col_index == 0)
-			  printf("Sliding Window Halfway through\n");
+			  if (row_index == ((int)(height/2)) && col_index == 0)
+					  printf("Sliding Window Halfway through\n");
 
-	  double mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
-      //If mean itself is below the threshold no point moving forward - LATER NEEDS TO BE REWORKED FOR BLACK CARS
-	  if(mean < MEAN_THRESHOLD)
-	      continue;
+			  mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
+		      //If mean itself is below the threshold no point moving forward - LATER NEEDS TO BE REWORKED FOR BLACK CARS
+			  if(mean < MEAN_THRESHOLD)
+			      continue;
 
-	  //Calculate window variance
-      double window_var = window_variance(pass_image, row_index, col_index, templateWidth, templateHeight, mean);
-	  //Calculate window_template variance
-	  double S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
-      double corr_coefficient = S_fg / (sqrt(window_var) * sqrt(car_template_variance));
-      //cout << "window_var " << window_var << " car_template_variance " << car_template_variance << " S_fg " << S_fg << endl << " corr " << corr_coefficient << endl;
-      //Calculate correlation coefficient
-	  if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
+			  //Calculate window variance
+		      window_var = window_variance(pass_image, row_index, col_index, templateWidth, templateHeight, mean);
+			  //Calculate window_template variance
+			  S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
+		      corr_coefficient = S_fg / (sqrt(window_var) * sqrt(car_template_variance));
+		      //cout << "window_var " << window_var << " car_template_variance " << car_template_variance << " S_fg " << S_fg << endl << " corr " << corr_coefficient << endl;
+		      
+			  //Calculate correlation coefficient
+			  if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
+				car_found_jump = (int)((3 * templateWidth) / 4);
+		        // add a new instance of detectedBox in vector
+		        //cout << row_index << ", " << col_index << " corr " << corr_coefficient << " mean " << mean << endl;
+		        detectedBoxes.push_back(DetectedBox(row_index, col_index, templateWidth, templateHeight, corr_coefficient));
+		        //return detectedBoxes;
+		      }
+				col_index += car_found_jump;
+		        //cout << corr_coefficient << endl;
+		    }
+  		}
+	}
 
-        // add a new instance of detectedBox in vector
-        cout << row_index << ", " << col_index << " corr " << corr_coefficient << " mean " << mean << endl;
-        detectedBoxes.push_back(DetectedBox(row_index, col_index, templateWidth, templateHeight, corr_coefficient));
-        //return detectedBoxes;
-      }
-        //cout << corr_coefficient << endl;
-    }
-  }
   return detectedBoxes;
+}
+
+
+//Threshold Value for each window overlap - dynamic calculation
+double threshold_same_window_value(const double window_width, const double window_height){
+	return ((sqrt( (window_width * window_width) + (window_height * window_height) )) / 3.00);
+}
+
+
+//Eliminate overlapping windows
+std::vector<DetectedBox> remove_duplicate_box(std::vector<DetectedBox> all_windows){
+	
+	double threshold_same_window = 0.0;	
+	double window_distance = 0.0;
+	std::vector<DetectedBox> unique_window_set, buffer_window_set;
+	DetectedBox *selected_db;
+	selected_db = &all_windows[0];
+ 	printf("Size %d\n",all_windows.size());
+//	printf("%d\n",all_windows[0].row);
+	cout << selected_db->row << endl;
+	cout << all_windows.empty() << endl;
+	threshold_same_window = threshold_same_window_value(selected_db->width, selected_db->height);
+	cout << threshold_same_window;	
+	//for (unsigned int elements = 0; elements < all_windows.size(); ++elements){
+	while(!all_windows.empty()){
+//		printf("pointer dump");
+		buffer_window_set.push_back(all_windows[0]);
+//		printf("Before Dump");
+		threshold_same_window = threshold_same_window_value(all_windows[0].width, all_windows[0].height);
+//		printf("Threshold %f\n",threshold_same_window);
+		for (unsigned int inner_db = 1; inner_db != all_windows.size(); ++inner_db){
+			//if ((selected_db->row != inner_db->row) && (selected_db->col != inner_db->col)){
+				selected_db = &all_windows[inner_db];
+				for (unsigned int buffer_db = 0; buffer_db < buffer_window_set.size(); ++buffer_db){
+					window_distance = sqrt( pow((selected_db->row - buffer_window_set[buffer_db].row), 2) + pow((selected_db->col - buffer_window_set[buffer_db].col), 2));
+					//printf("%f \n",window_distance);
+					if (window_distance < threshold_same_window){
+						buffer_window_set.push_back(*selected_db);
+						all_windows.erase(all_windows.begin() + inner_db);
+						inner_db -= 1;
+						break;
+					}
+				}
+		}
+		selected_db = &buffer_window_set[0];
+		for (unsigned int buffer_db = 1; buffer_db != buffer_window_set.size(); ++buffer_db){
+			if (selected_db->confidence < buffer_window_set[buffer_db].confidence){
+				selected_db = &buffer_window_set[buffer_db];
+			}
+		}
+//		if ((selected_db->row == all_windows[0].row) && (selected_db->col == all_windows[0].col)){
+		unique_window_set.push_back(*selected_db);
+		all_windows.erase(all_windows.begin());
+		buffer_window_set.clear();
+//		}
+		//all_windows.erase(all_windows.begin());
+		//all_windows = buffer_window_set;
+		//buffer_window_set.clear();
+		printf("Size %d\n",all_windows.size());
+//		unique_window_set.push_back(*selected_db);
+
+	}
+	printf("Size %d\n", unique_window_set.size());
+	return unique_window_set;
+	
 }
 
 
@@ -725,28 +845,13 @@ SDoublePlane magnitude_image(const SDoublePlane &sobel_dx,const SDoublePlane &so
 
 
 //Sliding Window Car Detection
-void slidingWindowCarDetection(string template_name,const SDoublePlane &pass_image,const SDoublePlane &input_image){
+void sliding_window_car_detection(string template_name,const SDoublePlane &pass_image,const SDoublePlane &input_image){
 	
-  //Template Images
-  SDoublePlane car_template = SImageIO::read_png_file((template_name + ".png").c_str());
-  int width = car_template.rows(), height = car_template.cols();
-
-  //Template Mean
-  double car_template_mean;
-  for(int i = 0; i < width; i++)
-    for(int j = 0; j < height; j++)
-        car_template_mean += car_template[i][j];
-  car_template_mean = car_template_mean / (width * height);
-
-  //Template Variance
-  double car_template_variance;
-  for(int i = 0; i < width; i++)
-    for(int j = 0; j < height; j++)
-      car_template_variance += (car_template[i][j] - car_template_mean) * (car_template[i][j] - car_template_mean);
-  car_template_variance = car_template_variance / (width * height);
-
-  std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, car_template, car_template_mean, car_template_variance);
-  write_detection_image("final_overlay_output.png", detectedBoxes, input_image);
+  std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, template_name);
+  printf("All car matching windows found\n");
+  std::vector<DetectedBox> unique_box = remove_duplicate_box(detectedBoxes);
+  printf("Overlapping windows eliminated\n");
+  write_detection_image("final_overlay_output.png", detectedBoxes , input_image);
 
 }
 
@@ -808,7 +913,7 @@ int main(int argc, char *argv[])
 	SImageIO::write_png_file("morph_dilation.png",morph_dilation,morph_dilation,morph_dilation);
 	SImageIO::write_png_file("pass_image.png",pass_image,pass_image,pass_image);
 	printf("Sliding Window Detection on image %s started\n" , input_filename.c_str());
-	slidingWindowCarDetection(CAR_TEMPLATE_NAME,pass_image,input_image);
+	sliding_window_car_detection(CAR_TEMPLATE_NAME,pass_image,input_image);
 
 
 
