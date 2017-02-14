@@ -249,7 +249,7 @@ void min_max(const SDoublePlane &magnitude,double &minV,double &maxV){
 //Code Reference Started
 // ---http://www.sanfoundry.com/c-program-integer-to-string-vice-versa/ ---
 //Hacked By Gurleen Singh Dhody -gdhody- 12/Feb/2017
-string to_string(int num)
+string toString(int num)
 {
 	int rem, len = 0, n;
     n = num;
@@ -269,7 +269,7 @@ string to_string(int num)
     //printf("Number is %s\n",value);
     string result(value);
     //printf("%s\n",result.c_str());
-	return result;	
+	return result;
 }
 //Code Reference Finished
 
@@ -501,7 +501,7 @@ void hog_implementation(const char *file_name){
 			if (sobel_dx[row_loop][col_loop] != 0.0)
 				angle[row_loop][col_loop] = (double)(atan( ((double)sobel_dy[row_loop][col_loop]) / ((double)sobel_dx[row_loop][col_loop]) ) * 180.00) / PI;
 			else if (sobel_dy[row_loop][col_loop] != 0.0)
-				angle[row_loop][col_loop] = 0.0;				
+				angle[row_loop][col_loop] = 0.0;
 			else
 				angle[row_loop][col_loop] = -90.00;
 			//since atan2 gives between -PI/2 to +PI/2 and histogram wants a range between 0 and 180
@@ -512,12 +512,12 @@ void hog_implementation(const char *file_name){
 	write_normalized_image("hog_magnitude.png",magnitude);
 	SDoublePlane hog_image = SImageIO::read_png_file("hog_magnitude.png");
 	printf("Hog Magnitude Computed\n");
-	
+
 	//HOG Constants
 	int cell_size = HOG_CELL_SIZE;
 	int bin_size = HOG_BIN_SIZE;
 	int bin_seperation = HOG_BIN_SEPERATION;
-	
+
 	//HOG Histogram Initialization
 	int size_histogram = (hog_image.rows()/cell_size) * (hog_image.cols()/cell_size);
 	double ** histogram = new double*[size_histogram];
@@ -537,7 +537,7 @@ void hog_implementation(const char *file_name){
 					index_x = (cell_size * row) + cell_r;
 					index_y = (cell_size * col) + cell_c;
 					angle_xy = ((int)angle[index_x][index_y]);
-					
+
 					//finding bin number
 					for (int move = -10; move <= 190; move += HOG_BIN_SEPERATION){
 							if (angle_xy <= move){
@@ -545,17 +545,17 @@ void hog_implementation(const char *file_name){
 									break;
 							}
 							if ((angle_xy - move) <= HOG_BIN_SEPERATION)
-									lower_bound = move;		
+									lower_bound = move;
 					}
 					if (upper_bound == 190)
-							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y]; 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][HOG_BIN_SIZE - 1] += magnitude[index_x][index_y];
 					else if (lower_bound == -10)
 							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][0] += magnitude[index_x][index_y];
 					else{
-							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(upper_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
 																			* ( (angle[index_x][index_y] - lower_bound) / ((float)bin_seperation) );
 							//histogram[(row * (hog_image.rows()/cell_size)) + col][(upper_boundary - 10) / bin_seperation] += 0;
-							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y] 
+							histogram[(row * ((int)(hog_image.cols()/cell_size))) + col][(int)(lower_bound / HOG_BIN_SEPERATION)] += magnitude[index_x][index_y]
 																			* ( (upper_bound - angle[index_x][index_y]) / ((float)bin_seperation) );
 					}
 					//if (lower_bound >= 90.00)
@@ -565,8 +565,8 @@ void hog_implementation(const char *file_name){
 		}
 	}
 
-	
-	
+
+
 	//HOG Blocks
 	int block_bin_size = HOG_BIN_SIZE * 4;
 	int size_block = (hog_image.rows()/cell_size - 1) * (hog_image.cols()/cell_size - 1);
@@ -594,9 +594,9 @@ void hog_implementation(const char *file_name){
 				for (int block_c = 0; block_c < HOG_BLOCK_SIZE; ++block_c){
 					for (int cell = 0; cell < HOG_BIN_SIZE; ++cell){
 							//printf("%d , %d\n",(row * (blocks_per_row - 1)) + col,(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell);
-							blocks[(row * (blocks_per_row - 1)) + col][(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell] 
+							blocks[(row * (blocks_per_row - 1)) + col][(((block_r * HOG_BLOCK_SIZE) + block_c) * HOG_BIN_SIZE) + cell]
 									= histogram[(row * blocks_per_row) + col + (block_r * blocks_per_row) + block_c][cell];
-						
+
 					}
 				}
 			}
@@ -655,11 +655,18 @@ void hog_implementation(const char *file_name){
 //Image Window Mean
 double window_mean(SDoublePlane image, int row, int col, int width, int height){
 	  double mean;
+    double blackPixelCount;
 	  for(int i = row; i < row + height; i++)
-		for(int j = col; j < col + width; j++)
-		  mean += image[i][j];
+		for(int j = col; j < col + width; j++){
+      if(image[i][j] == 0.0)
+        blackPixelCount++;
+      mean += image[i][j];
+    }
 
-      return (mean / (width * height));
+    if(blackPixelCount > BLACK_PIXEL_COUNT)
+      mean = 0.0;
+
+    return (mean / (width * height));
 }
 
 
@@ -698,15 +705,15 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_templa
 	std::vector<DetectedBox> detectedBoxes;
 	int height = 0, car_found_jump = 0, templateHeight = 0, templateWidth = 0, width = 0;
 	double mean = 0.0, window_var = 0.0, S_fg = 0.0, corr_coefficient = 0.0, car_template_mean = 0.0, car_template_variance = 0.0;
-  
+
 	//Image Information - Morphological Filtered Image
 	height = pass_image.rows(), width = pass_image.cols();
 
 	for(int templates = 1; templates <= NUMBER_OF_TEMPLATES; ++templates){
 
-		printf("%s",("---#####Template " + to_string(templates) + " Started#####---\n").c_str());
+		printf("%s",("---#####Template " + toString(templates) + " Started#####---\n").c_str());
 		//Template Images
-		car_template = SImageIO::read_png_file((car_template_name + to_string(templates) + ".png").c_str());
+		car_template = SImageIO::read_png_file((car_template_name + toString(templates) + ".png").c_str());
 		templateWidth = car_template.cols();
 		templateHeight = car_template.rows();
 
@@ -738,6 +745,7 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_templa
 					  printf("Sliding Window Halfway through\n");
 
 			  mean =  window_mean(pass_image, row_index, col_index, templateWidth, templateHeight);
+
 		      //If mean itself is below the threshold no point moving forward - LATER NEEDS TO BE REWORKED FOR BLACK CARS
 			  if(mean < MEAN_THRESHOLD)
 			      continue;
@@ -748,7 +756,7 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_templa
 			  S_fg = window_template_variance(pass_image, car_template, row_index, col_index, templateWidth, templateHeight, car_template_mean, mean);
 		      corr_coefficient = S_fg / (sqrt(window_var) * sqrt(car_template_variance));
 		      //cout << "window_var " << window_var << " car_template_variance " << car_template_variance << " S_fg " << S_fg << endl << " corr " << corr_coefficient << endl;
-		      
+
 			  //Calculate correlation coefficient
 			  if(corr_coefficient > CORR_COEFFICIENT_THRESHOLD){
 				car_found_jump = (int)((3 * templateWidth) / 4);
@@ -775,9 +783,9 @@ double threshold_same_window_value(const double window_width, const double windo
 
 //Eliminate overlapping windows
 std::vector<DetectedBox> remove_duplicate_box(std::vector<DetectedBox> all_windows){
-	
+
 	cout << "Original Windows Found : " << all_windows.size() << endl;
-	double threshold_same_window = 0.0;	
+	double threshold_same_window = 0.0;
 	double window_distance = 0.0;
 	std::vector<DetectedBox> unique_window_set, buffer_window_set;
 	DetectedBox *selected_db;
@@ -812,7 +820,7 @@ std::vector<DetectedBox> remove_duplicate_box(std::vector<DetectedBox> all_windo
 	}
 	cout << "After removal of duplicate windows, Cars Found : " << unique_window_set.size() << endl;
 	return unique_window_set;
-	
+
 }
 
 
@@ -823,14 +831,14 @@ SDoublePlane magnitude_image(const SDoublePlane &sobel_dx,const SDoublePlane &so
 		for(int col_loop = 0; col_loop < magnitude.cols(); col_loop++){
 			magnitude[row_loop][col_loop] = sqrt((sobel_dx[row_loop][col_loop] * sobel_dx[row_loop][col_loop]) + (sobel_dy[row_loop][col_loop] * sobel_dy[row_loop][col_loop]));
 		}
-	}	
+	}
 	return magnitude;
 }
 
 
 //Sliding Window Car Detection
 void sliding_window_car_detection(string template_name,const SDoublePlane &pass_image,const SDoublePlane &input_image){
-	
+
   std::vector<DetectedBox> detectedBoxes = slide_window(pass_image, template_name);
   printf("All car matching windows found\n");
   std::vector<DetectedBox> unique_box = remove_duplicate_box(detectedBoxes);
@@ -856,6 +864,9 @@ double bicubicInterpolate (double p[4][4], double x, double y) {
 	return cubicInterpolate(arr, x);
 }
 
+double degree_to_radian(double degree){
+  return degree * PI / 180.0;
+}
 
 //Main Function
 int main(int argc, char *argv[])
@@ -865,8 +876,7 @@ int main(int argc, char *argv[])
       		cerr << "usage: " << argv[0] << " input_image" << endl;
 	        return 1;
     	}
-
-
+      
 	//Assignment Functions Simulation
   	string input_filename(argv[1]);
   	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
@@ -899,8 +909,6 @@ int main(int argc, char *argv[])
 	printf("Sliding Window Detection on image %s started\n" , input_filename.c_str());
 	sliding_window_car_detection(CAR_TEMPLATE_NAME,pass_image,input_image);
 
-
-
   //double p[4][4] = {{1,3,3,4}, {7,2,3,4}, {1,6,3,6}, {2,5,7,2}};
 /*
   double sample[pass_image.rows()][pass_image.cols()];
@@ -913,114 +921,6 @@ int main(int argc, char *argv[])
 	// Interpolate
 	std::cout << bicubicInterpolate(sample, 0.1, 0.2) << '\n';
 */
-
-/*
-  SDoublePlane car_template = SImageIO::read_png_file("template-car2.png");
-=======
-/*
-
- SDoublePlane car_template = SImageIO::read_png_file("template-car.png");
->>>>>>> 698fa541058b6ce52e063099f35ca5b04a6b7539
-
-  // calculate car template's mean
-  int car_template_x = car_template.rows();
-  int car_template_y = car_template.cols();
-  cout << car_template_x << " " <<  car_template_y << endl;
-  double mean_car_template;
-  for(int i = 0; i < car_template_x; i++){
-    for(int j = 0; j < car_template_y; j++){
-        //cout <<  i << " " << j << " " << car_template[i][j] << endl;
-        mean_car_template += car_template[i][j];
-    }
-  }
-  cout << "sum " << mean_car_template << endl;
-  mean_car_template = mean_car_template / (car_template_x * car_template_y);
-  cout << mean_car_template << endl;
-
-  // calculate sample window's mean
-
-  //int window_x_size[2] = {33, 75};
-  //int window_y_size[2] = {88, 107};
-
-  //int window_x_size[2] = {0, 42};
-  //int window_y_size[2] = {0, 19};
-
-  int window_y_size[2] = {111, 130};
-  int window_x_size[2] = {28, 71};
-
-  double mean_window;
-  //int count;
-  for(int i = window_x_size[0]; i < window_x_size[1]; i++){
-    for(int j = window_y_size[0]; j < window_y_size[1]; j++){
-      mean_window += input_image[i][j];
-    }
-  }
-  //cout << count << endl;
-  cout << window_y_size[1] - window_y_size[0] << "  " << window_x_size[1] - window_x_size[0] << endl;
-  //cout << "sum " << mean_window << endl;
-  mean_window = mean_window / ((window_y_size[1] - window_y_size[0]) * (window_x_size[1] - window_x_size[0]));
-  cout << mean_window << endl;
-
-  // variance of car template
-  double S_ff;
-
-  for(int i = 0; i < car_template_x; i++){
-    for(int j = 0; j < car_template_y; j++){
-      S_ff += (car_template[i][j] - mean_car_template) * (car_template[i][j] - mean_car_template);
-    }
-  }
-
-  //cout << "sum S_ff " << S_ff << endl;
-  S_ff = S_ff / (car_template_x * car_template_y);
-
-  //cout << "S_ff " << S_ff << endl;
-  // variance of window
-  double S_gg;
-
-  for(int i = window_x_size[0]; i < window_x_size[1]; i++){
-    for(int j = window_y_size[0]; j < window_y_size[1]; j++){
-      S_gg += (input_image[i][j] - mean_window) * (input_image[i][j] - mean_window);
-    }
-  }
-  //cout << "sum S_gg " << S_gg << endl;
-  S_gg = S_gg / (car_template_x * car_template_y);
-  //cout << "S_gg " << S_gg << endl;
-
-  double S_fg;
-  for(int i_template = 0, i_window = window_x_size[0]; i_template < car_template_x && i_window < window_x_size[1]; i_template++, i_window++){
-    for(int j_template = 0, j_window = window_y_size[0]; j_template < car_template_y && j_window < window_y_size[1]; j_template++, j_window++){
-      //cout << "template " << i_template << " " << j_template << " window " << i_window << " " << j_window << endl;
-      // NOTE -  not sure if I should use abs
-      S_fg += (car_template[i_template][j_template] - mean_car_template) * (input_image[i_window][j_window] - mean_window);
-    }
-  }
-
-  //cout << "sum S_fg " << S_fg << endl;
-
-  S_fg = S_fg / (car_template_x * car_template_y);
-
-  //cout << "S_fg " << S_fg << endl;
-
-  // correlation
-
-  double corr;
-  corr = S_fg / (sqrt(S_ff) * sqrt(S_gg));
-  cout << " sff " << S_ff << " sgg " << S_gg << " sfg " << S_fg << " corr " << corr << endl;
-
-  // run a sliding window on the pass image of the same dimension as template image
-
-<<<<<<< HEAD
-=======
-
->>>>>>> 698fa541058b6ce52e063099f35ca5b04a6b7539
-*/
-
-
-
-	//hog_implementation();
-
-
-
 
 
 
