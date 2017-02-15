@@ -138,6 +138,7 @@ class SImageIO
 	    }
 	}
       fclose(fp);
+      printf("Reading Of Image Successfull\n");
     }
 
 

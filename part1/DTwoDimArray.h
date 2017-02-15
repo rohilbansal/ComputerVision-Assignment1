@@ -88,6 +88,12 @@ class _DTwoDimArray
       return *this;
     }
 
+  
+
+  /*
+  gdhody
+  Defining template functions to be used
+  */
 
   ///////////////////////////////////////////////////////
   // element access
@@ -133,6 +139,10 @@ class _DTwoDimArray
       }
     
     T *cp = data_area;
+    /*
+      gdhody
+      Initialize Rows in the data_matrix
+    */
     for(int i=0; i<_rows; i++, cp+=_cols)
       data[i] = cp;
     //  profiler->end(2);
