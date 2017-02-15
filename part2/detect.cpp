@@ -772,7 +772,7 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_templa
 				col_index += car_found_jump;
 		        //cout << corr_coefficient << endl;
 		    }
-		    
+
   		}
   		cout << "Template " << templates << ", Total Cars found : " << detectedBoxes.size()<<endl;
 	}
@@ -849,8 +849,8 @@ void sliding_window_car_detection(string template_name,const SDoublePlane &pass_
   printf("All car matching windows found\n");
   std::vector<DetectedBox> unique_box = remove_duplicate_box(detectedBoxes);
   printf("Overlapping windows eliminated\n");
-  write_detection_image("final_overlay_output.png", unique_box , input_image);
-  write_detection_txt("final_overlay_output.txt",unique_box);
+  write_detection_image("detected.png", unique_box , input_image);
+  write_detection_txt("detected.txt",unique_box);
 
 }
 
@@ -883,9 +883,9 @@ int main(int argc, char *argv[])
       		cerr << "usage: " << argv[0] << " input_image" << endl;
 	        return 1;
     	}
-      
+
     //hog_implementation(("Templates/template-car19.png"));
-	
+
 	//Assignment Functions Simulation
   	string input_filename(argv[1]);
   	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
@@ -899,9 +899,9 @@ int main(int argc, char *argv[])
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image, true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image, false);
 	SDoublePlane magnitude = magnitude_image(sobel_dx, sobel_dy);
-	write_normalized_image("sobel_magnitude.png",magnitude);
+	write_normalized_image("edges.png",magnitude);
 	//Image Name, Intensity Offset for 0 & 1 Binary Image
-	SDoublePlane edge_image = binary_image("sobel_magnitude.png", BINARY_IMAGE_THRESHOLD);
+	SDoublePlane edge_image = binary_image("edges.png", BINARY_IMAGE_THRESHOLD);
 	SImageIO::write_png_file("binary_image.png",edge_image,edge_image,edge_image);
 	//Morphology Filter - Dilation x*x filter of 1s
 	SDoublePlane morph_dilation = dilation(edge_image, MORPH_DILATION_FILTER);
