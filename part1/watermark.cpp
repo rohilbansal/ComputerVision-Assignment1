@@ -126,7 +126,7 @@ SDoublePlane check_image(const SDoublePlane &input, int N){
 	}
 
 	//Calculating correlation between real values and vector v
-	double c_mean, v_mean, c_std, v_std, cv_cov;
+	double c_mean, v_mean, c_std, v_std, cv_cov = 0.0;
 
 	//Mean of c and v
 	for(int loop = 0; loop < l; ++loop){
