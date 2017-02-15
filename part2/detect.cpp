@@ -487,9 +487,10 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh=0)
 
 
 //Trying a different approach - HOG Dalal Detector - Status Completed & Working - can be used to train car images and train SVM or logistic
-void hog_implementation(const char *file_name){
+void hog_implementation(char *file_name){
 
 	//Input to the file
+	//*file_name = ("Templates/template-car19.png").c_str();
 	SDoublePlane input_image = SImageIO::read_png_file(file_name);
 	SDoublePlane sobel_dx = sobel_gradient_filter(input_image,true);
 	SDoublePlane sobel_dy = sobel_gradient_filter(input_image,false);
@@ -663,9 +664,12 @@ double window_mean(SDoublePlane image, int row, int col, int width, int height){
       mean += image[i][j];
     }
 
-    if(blackPixelCount > BLACK_PIXEL_COUNT)
-      mean = 0.0;
-
+    if(blackPixelCount > BLACK_PIXEL_COUNT){
+		if(blackPixelCount < 15){
+		//	cout << row << " " << col << " : Location avoided due to black pixel content" << endl;
+		}
+		mean = 0.0;
+}
     return (mean / (width * height));
 }
 
@@ -768,7 +772,9 @@ std::vector<DetectedBox> slide_window(SDoublePlane pass_image, string car_templa
 				col_index += car_found_jump;
 		        //cout << corr_coefficient << endl;
 		    }
+		    
   		}
+  		cout << "Template " << templates << ", Total Cars found : " << detectedBoxes.size()<<endl;
 	}
 
   return detectedBoxes;
@@ -844,6 +850,7 @@ void sliding_window_car_detection(string template_name,const SDoublePlane &pass_
   std::vector<DetectedBox> unique_box = remove_duplicate_box(detectedBoxes);
   printf("Overlapping windows eliminated\n");
   write_detection_image("final_overlay_output.png", unique_box , input_image);
+  write_detection_txt("final_overlay_output.txt",unique_box);
 
 }
 
@@ -877,6 +884,8 @@ int main(int argc, char *argv[])
 	        return 1;
     	}
       
+    //hog_implementation(("Templates/template-car19.png"));
+	
 	//Assignment Functions Simulation
   	string input_filename(argv[1]);
   	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
