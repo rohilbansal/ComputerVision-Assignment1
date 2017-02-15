@@ -298,7 +298,13 @@ SDoublePlane remove_interference(const SDoublePlane &input){
 	return result;
 }
 
-
+void quantitative_analysis(SDoublePlane input_image){
+		for(int i = 1; i < 100; i++){
+			// i is the value of N
+			cout<<" ###### "<< i<<" ###### "<<endl;
+			check_image(input_image, i);
+		}
+	}
 
 int main(int argc, char **argv)
 {
@@ -396,6 +402,13 @@ int main(int argc, char **argv)
 		SImageIO::write_png_file(argv[3],Aresult,Aresult,Aresult);
 		printf ("Watermark Check 1.4 Module Finished, with output Image : %s\n",argv[3]);
     	  }
+	else if(strcmp(argv[4],"quantCheck")==0)
+	  {
+		SDoublePlane result = mark_image(input_image, atoi(argv[5]));
+		SImageIO::write_png_file(argv[3],result,result,result);
+
+		quantitative_analysis(SImageIO::read_png_file(argv[3]));
+  }
 	else
 	  throw string("Bad operation!");
       }
