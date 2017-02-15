@@ -317,26 +317,6 @@ int main(int argc, char **argv)
 	return -1;
       }
 
- DIR   *d;
-  struct dirent *dir;
-  d = opendir("./Test_Images_2/");
-  string *file_names = new string[34];
-  int i = 0;
-  if (d)
-  {
-    while ((dir = readdir(d)) != NULL)
-    {
-      //if ((*dir->d_name).find(".png")!=-1){
-      printf("%s\n", dir->d_name);
-      file_names[i] = dir->d_name;
-      i++;
-    //}
-    }
-    cout<<i<<endl;
-    closedir(d);
-  }
-
-
     string part = argv[1];
     string inputFile = argv[2];
     string outputFile = argv[3];
@@ -349,6 +329,25 @@ int main(int argc, char **argv)
     }
 
     if(strcmp(argv[1], "1.0") == 0){
+			DIR   *d;
+		   struct dirent *dir;
+		   d = opendir("./Test_Images_2/");
+		   string *file_names = new string[34];
+		   int i = 0;
+		   if (d)
+		   {
+		     while ((dir = readdir(d)) != NULL)
+		     {
+		       //if ((*dir->d_name).find(".png")!=-1){
+		       printf("%s\n", dir->d_name);
+		       file_names[i] = dir->d_name;
+		       i++;
+		     //}
+		     }
+		     cout<<i<<endl;
+		     closedir(d);
+		   }
+
       cout << "inside 1.0"<<endl;
       for(int i=0; i<34; i++){
         printf("%s\n", file_names[i].c_str());
