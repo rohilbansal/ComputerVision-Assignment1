@@ -335,10 +335,12 @@ int main(int argc, char **argv)
     string inputFile = argv[2];
     string outputFile = argv[3];
     cout << "In: " << inputFile <<"  Out: " << outputFile << endl;
-    //printf("%s\n",inputFile.c_str());
-    //cout<<inputFile.c_str();
-    //SDoublePlane input_image = SImageIO::read_png_file(inputFile.c_str());
     SDoublePlane input_image;
+    if(strcmp(argv[1], "1.0") != 0){
+      printf("%s\n",inputFile.c_str());
+      cout<<inputFile.c_str();
+      input_image = SImageIO::read_png_file(inputFile.c_str());
+    }
 
     if(strcmp(argv[1], "1.0") == 0){
       cout << "inside 1.0"<<endl;
